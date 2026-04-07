@@ -26,8 +26,6 @@ import {
   Youtube,
   Zap,
   Bot,
-  ChevronRight,
-  ExternalLink,
 } from "lucide-react";
 import useTheme from "../../hooks/useTheme";
 
@@ -346,7 +344,7 @@ export default function LandingPage() {
     };
   }, []);
 
-  /* Intersection observer for scroll-reveal */
+  /* Intersection observer for inline scroll-reveal animations */
   useEffect(() => {
     observerRef.current = new IntersectionObserver(
       (entries) => {
@@ -383,10 +381,17 @@ export default function LandingPage() {
         dark ? "bg-gray-950 text-gray-100" : "bg-gray-50 text-gray-900"
       }`}
     >
-      {/* ── GLOBAL STYLES ── */}
+      {/* ── GLOBAL STYLES (No CSS Animations, Only Fonts & Utils) ── */}
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&family=Inter:wght@400;500;600;700&display=swap');
+        
+        body { 
+          font-family: 'Inter', sans-serif; 
+        }
+        .font-brand {
+          font-family: 'Dancing Script', cursive;
+        }
+
         .gradient-text {
           background: linear-gradient(135deg, #a855f7, #3b82f6);
           -webkit-background-clip: text;
@@ -425,18 +430,6 @@ export default function LandingPage() {
           background-image:
             radial-gradient(ellipse 80% 60% at 20% 0%, rgba(147,51,234,0.05) 0%, transparent 60%),
             radial-gradient(ellipse 60% 50% at 80% 10%, rgba(59,130,246,0.04) 0%, transparent 60%);
-        }
-        .chat-bubble-ai {
-          animation: fadeSlideUp 0.4s ease;
-        }
-        @keyframes fadeSlideUp {
-          from { opacity: 0; transform: translateY(8px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-        .kds-pulse { animation: kdsPulse 2s infinite; }
-        @keyframes kdsPulse {
-          0%, 100% { opacity: 1; }
-          50%       { opacity: 0.4; }
         }
         .popular-ring {
           outline: 2px solid #9333ea;
@@ -477,7 +470,7 @@ export default function LandingPage() {
             <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center shadow-lg group-hover:shadow-purple-500/40 transition-shadow">
               <ChefHat className="w-4 h-4 md:w-5 md:h-5 text-white" />
             </div>
-            <span className="text-xl md:text-2xl font-extrabold gradient-text tracking-tight">
+            <span className="text-xl md:text-2xl font-brand font-extrabold gradient-text tracking-tight">
               DineFlow
             </span>
           </Link>
@@ -544,7 +537,7 @@ export default function LandingPage() {
           </div>
         </div>
 
-        {/* Mobile Menu */}
+        {/* Mobile Menu Dropdown */}
         {mobileOpen && (
           <div
             className={`md:hidden border-t ${dark ? "bg-gray-900 border-gray-800" : "bg-white border-gray-200"} shadow-xl`}
@@ -724,7 +717,7 @@ export default function LandingPage() {
                   </p>
                 </div>
                 <div className="flex items-center gap-1.5 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 px-2.5 py-1 rounded-full text-[10px] sm:text-xs font-bold">
-                  <span className="kds-pulse w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
                   Live
                 </div>
               </div>
@@ -900,7 +893,7 @@ export default function LandingPage() {
                   }`}
                 >
                   <div
-                    className={`w-10 h-10 md:w-12 md:h-12 rounded-xl border flex items-center justify-center mb-4 md:mb-5 ${ac.bg} ${ac.border}`}
+                    className={`w-10 h-10 md:w-12 h-12 rounded-xl border flex items-center justify-center mb-4 md:mb-5 ${ac.bg} ${ac.border}`}
                   >
                     <Icon className={`w-4 h-4 md:w-5 md:h-5 ${ac.text}`} />
                   </div>
@@ -1024,7 +1017,7 @@ export default function LandingPage() {
                       className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
                     >
                       <div
-                        className={`max-w-[85%] sm:max-w-[82%] px-3 py-2 sm:px-4 sm:py-2.5 rounded-2xl text-[11px] sm:text-sm leading-relaxed chat-bubble-ai ${
+                        className={`max-w-[85%] sm:max-w-[82%] px-3 py-2 sm:px-4 sm:py-2.5 rounded-2xl text-[11px] sm:text-sm leading-relaxed ${
                           m.role === "user"
                             ? "bg-gradient-to-br from-purple-600 to-blue-600 text-white rounded-br-sm"
                             : "bg-gray-800 text-gray-200 border border-gray-700 rounded-bl-sm"
@@ -1169,8 +1162,8 @@ export default function LandingPage() {
             <div
               className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] sm:text-xs font-bold uppercase tracking-widest mb-4 ${
                 dark
-                  ? "bg-purple-950/60 text-purple-300 border border-purple-800/60"
-                  : "bg-purple-50 text-purple-600 border border-purple-200"
+                  ? "bg-emerald-950/60 text-emerald-300 border border-emerald-800/60"
+                  : "bg-emerald-50 text-emerald-600 border border-emerald-200"
               }`}
             >
               <IndianRupee className="w-3 h-3" /> Pricing
@@ -1332,7 +1325,7 @@ export default function LandingPage() {
                 <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center shadow-lg">
                   <ChefHat className="w-4 h-4 text-white" />
                 </div>
-                <span className="text-lg font-extrabold gradient-text tracking-tight">
+                <span className="text-lg font-brand font-extrabold gradient-text tracking-tight">
                   DineFlow
                 </span>
               </Link>
