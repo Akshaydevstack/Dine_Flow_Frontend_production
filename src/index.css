@@ -1,6 +1,3 @@
-/* 🚀 OPTIMIZED: Only importing Dancing Script (Brand) and Inter (UI) */
-@import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&family=Inter:wght@400;500;600;700&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -46,19 +43,26 @@
 }
 
 @layer utilities {
-  /* The Glass Card Effect */
+  /* 🚀 OPTIMIZED: The Glass Card Effect */
   .glass {
     background: var(--glass-bg);
-    /* Note: If mobile is still slightly laggy, you can remove these two blur lines! */
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
     border: 1px solid var(--glass-border);
     box-shadow: var(--glass-shadow);
   }
 
-  /* The Background Gradient */
+  /* Only apply expensive blur on desktop to prevent mobile scroll lag & battery drain */
+  @media (min-width: 768px) {
+    .glass {
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      transform: translateZ(0); /* Force GPU hardware acceleration */
+    }
+  }
+
+  /* 🚀 OPTIMIZED: The Background Gradient */
   .gradient-bg {
-    background: linear-gradient(135deg, var(--color-bg) 0%, lab(96.35% -0.6 -2.39) 100%);
+    /* Replaced lab() with hex #f1f5f9 for faster parsing & 100% compatibility */
+    background: linear-gradient(135deg, var(--color-bg) 0%, #f1f5f9 100%);
   }
   .dark .gradient-bg {
     background: linear-gradient(135deg, var(--color-bg) 0%, #020617 100%);
@@ -71,19 +75,19 @@
 @layer components {
   /* Primary Button Style */
   .btn-primary {
-    /* 🚀 FIXED: Changed font-button to font-sans */
     @apply bg-gradient-to-r from-purple-600 to-blue-500 hover:from-purple-500 hover:to-blue-400
            text-white font-sans font-semibold
            shadow-lg hover:shadow-xl hover:shadow-purple-500/20 
            transition-all duration-300 ease-out
            hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98]
            disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none;
+    /* Optimize transition performance */
+    will-change: transform, box-shadow;
   }
 }
 
 /* ==========================================================================
    4. LIGHTWEIGHT ENTRY ANIMATIONS
-   (These only run once when page loads, no loops)
    ========================================================================== */
 @keyframes slide-up-fade {
   from { opacity: 0; transform: translateY(20px); }
@@ -95,33 +99,42 @@
   to { opacity: 1; transform: scale(1); }
 }
 
+@keyframes spin { 
+  from { transform: rotate(0deg); } 
+  to { transform: rotate(360deg); } 
+}
+
+/* 🚀 OPTIMIZED: Added will-change to prepare GPU for animations */
 .animate-slide-up {
+  will-change: transform, opacity;
   animation: slide-up-fade 0.6s ease-out forwards;
 }
 
-/* Delays for staggered effect */
 .animate-slide-up-delay-2 {
+  will-change: transform, opacity;
   opacity: 0;
   animation: slide-up-fade 0.6s ease-out 0.2s forwards;
 }
 
 .animate-slide-up-delay-4 {
+  will-change: transform, opacity;
   opacity: 0;
   animation: slide-up-fade 0.6s ease-out 0.4s forwards;
 }
 
 .animate-scale-in {
+  will-change: transform, opacity;
   animation: scale-in 0.3s ease-out forwards;
 }
 
 .animate-spin {
+  will-change: transform;
   animation: spin 1s linear infinite;
 }
-@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
-
-/* ── Custom Scrollbar for TableStatusGrid ── */
-
+/* ==========================================================================
+   5. CUSTOM SCROLLBAR
+   ========================================================================== */
 /* Light mode */
 .custom-scrollbar::-webkit-scrollbar {
   width: 4px;
@@ -142,7 +155,7 @@
   background: transparent;
 }
 .dark .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #1e293b; /* slate-800 — blends into dark bg */
+  background: #1e293b; /* slate-800 */
   border-radius: 999px;
 }
 .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
@@ -152,7 +165,7 @@
 /* Firefox */
 .custom-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: #e2e8f0 transparent; /* thumb track */
+  scrollbar-color: #e2e8f0 transparent;
 }
 .dark .custom-scrollbar {
   scrollbar-color: #1e293b transparent;
