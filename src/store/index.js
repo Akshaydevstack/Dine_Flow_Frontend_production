@@ -19,6 +19,7 @@ import cartReducer from "./slices/cartSlice";
 import orderReducer from "./slices/orderSlice";
 import menuDishesReducer from "./slices/menuDishesSlice";
 import restaurantDetailsReducer from "./slices/restaurantDetailsSlice";
+import userProfileReducer from "./slices/userProfileSlice"
 
 /* =========================================================
    WAITER
@@ -52,9 +53,6 @@ import adminBroadcastNotificationsReducer from "./slices/restaurantAdminSlice/ad
 
 /* =========================================================
    SUPER ADMIN
-   ⚠ FIX: was previously importing superAdminStaffReducer
-     from the wrong file (superAdminRestaurantSlice).
-     Now correctly imports from superAdminStaffSlice.
 ========================================================= */
 import superAdminRestaurantsReducer from "./slices/superAdmin/superAdminRestaurantSlice";
 import superAdminStaffReducer from "./slices/superAdmin/superAdminStaffSlice"; 
@@ -78,6 +76,7 @@ const store = configureStore({
     orders: orderReducer,
     menuDishes: menuDishesReducer,
     restaurantDetails: restaurantDetailsReducer,
+    userProfile: userProfileReducer,
 
     /* WAITER */
     waiterTables: waiterTablesReducer,

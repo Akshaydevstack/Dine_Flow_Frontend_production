@@ -36,7 +36,7 @@ function saveMessages(tableId, messages) {
 
 function makeWelcome(restaurantName = "our restaurant", userName = "", id = 0) {
   const greeting = userName ? `Hello ${userName}! 👋` : "Hello! 👋";
-  const content = `${greeting} I'm Arjun, your personal AI Waiter at ${restaurantName}.\n\nI'm here to make your dining experience seamless. Here are a few things I can do for you:\n\n🍽️ Recommend dishes based on your cravings\n🛒 Manage your cart and place orders instantly\n📜 Look up your past orders for quick reordering\n📨 Take feedback or complaints directly to the manager\n\nWhat are you in the mood for today?`;
+  const content = `${greeting} I'm Dina, your personal AI Waiter at ${restaurantName}.\n\nI'm here to make your dining experience seamless. Here are a few things I can do for you:\n\n🍽️ Recommend dishes based on your cravings\n🛒 Manage your cart and place orders instantly\n📜 Look up your past orders for quick reordering\n📨 Take feedback or complaints directly to the manager\n\nWhat are you in the mood for today?`;
 
   return {
     id: id, role: "assistant", tools: [],

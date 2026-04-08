@@ -6,7 +6,7 @@ export const fetchRestaurantDetails = createAsyncThunk(
   "customer/restaurantDetails",
   async (_, thunkApi) => {
     try {
-      const res = await axiosClient.get("auth/customer/restaurant-details");
+      const res = await axiosClient.get("auth/customer/restaurant-details/");
       return res.data;
     } catch (err) {
       return thunkApi.rejectWithValue(
