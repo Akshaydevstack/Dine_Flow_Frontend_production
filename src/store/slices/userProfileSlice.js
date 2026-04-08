@@ -33,6 +33,20 @@ export const updateUserProfile = createAsyncThunk(
   }
 );
 
+export const checkMobileAvailability = createAsyncThunk(
+  "userProfile/checkMobile",
+  async (mobile_number, thunkApi) => {
+    try {
+      const res = await axiosClient.post("/auth/customer/profile/check-mobile/", { mobile_number });
+      return res.data; // returns { available: true/false, message: "..." }
+    } catch (err) {
+      return thunkApi.rejectWithValue(
+        err.response?.data || { message: "Failed to check mobile availability" }
+      );
+    }
+  }
+);
+
 // ✅ NEW: Thunk for updating mobile number via Firebase
 export const updateMobileWithFirebase = createAsyncThunk(
   "userProfile/updateMobile",

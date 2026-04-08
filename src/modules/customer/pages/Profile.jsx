@@ -30,11 +30,10 @@ import {
   updateUserProfile,
   updateMobileWithFirebase,
   createAddress,
+  checkMobileAvailability, // ✅ Import the new checker thunk
 } from "../../../store/slices/userProfileSlice";
 
-// ✅ Import Firebase Utilities
 import { RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
-// ⚠️ IMPORTANT: UPDATE THIS IMPORT TO POINT TO YOUR FIREBASE AUTH INSTANCE
 import { auth } from "../../../firebase/firebaseConfig";
 
 export default function Profile() {
@@ -88,7 +87,6 @@ export default function Profile() {
     }
   }, [displayUser]);
 
-  // ✅ Initialize reCAPTCHA
   const setupRecaptcha = () => {
     if (!window.recaptchaVerifier) {
       window.recaptchaVerifier = new RecaptchaVerifier(
@@ -128,12 +126,31 @@ export default function Profile() {
       editForm.email !== displayUser.email;
 
     try {
-      // PHASE 1: IF MOBILE CHANGED, WE NEED OTP FIRST
+      // PHASE 1: IF MOBILE CHANGED, VERIFY DB FIRST, THEN TRIGGER OTP
       if (mobileChanged && !showOtp) {
-        setupRecaptcha();
-        const appVerifier = window.recaptchaVerifier;
         const formattedMobile = `+91${editForm.mobile_number}`;
 
+        // ✅ 1. Check Database Availability BEFORE Firebase
+        try {
+          const checkRes = await dispatch(
+            checkMobileAvailability(formattedMobile),
+          ).unwrap();
+          if (!checkRes.available) {
+            setProfileErrors({ mobile_number: checkRes.message });
+            setIsSubmittingProfile(false);
+            return; // Stop right here, don't trigger Firebase!
+          }
+        } catch (err) {
+          setProfileErrors({
+            mobile_number: "Could not verify if number is available.",
+          });
+          setIsSubmittingProfile(false);
+          return;
+        }
+
+        // ✅ 2. Number is available! Trigger Firebase OTP
+        setupRecaptcha();
+        const appVerifier = window.recaptchaVerifier;
         const confirmation = await signInWithPhoneNumber(
           auth,
           formattedMobile,
@@ -154,7 +171,7 @@ export default function Profile() {
         }
 
         const result = await confirmationResult.confirm(otp);
-        const firebaseToken = await result.user.getIdToken(true); // Force refresh token
+        const firebaseToken = await result.user.getIdToken(true);
 
         // Dispatch Backend Update
         await dispatch(
@@ -798,7 +815,7 @@ export default function Profile() {
               )}
             </div>
 
-            {/* Quick Actions & Cart (omitted unchanged internal blocks to keep response manageable, assume identical) */}
+            {/* Quick Actions */}
             <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700 shadow-sm">
               <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-3">
                 Quick Actions
@@ -843,6 +860,7 @@ export default function Profile() {
               </div>
             </div>
 
+            {/* Cart Summary */}
             {cartItems.length > 0 && (
               <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700 shadow-sm">
                 <div className="flex items-center justify-between mb-3">
