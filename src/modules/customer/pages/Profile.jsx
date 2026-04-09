@@ -30,7 +30,7 @@ import {
   updateUserProfile,
   updateMobileWithFirebase,
   createAddress,
-  checkMobileAvailability, // ✅ Import the new checker thunk
+  checkMobileAvailability, 
 } from "../../../store/slices/userProfileSlice";
 
 import { RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";

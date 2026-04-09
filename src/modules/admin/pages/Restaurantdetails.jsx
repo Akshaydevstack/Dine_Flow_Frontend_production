@@ -17,20 +17,30 @@ import {
   Loader2,
   ToggleLeft,
   ToggleRight,
-  ChevronDown,
   Hash,
   Locate,
+  Lock,
+  KeyRound,
+  Eye,
+  EyeOff,
+  User,
+  UserCog,
+  ShieldAlert,
+  CalendarDays
 } from "lucide-react";
 import {
   fetchRestaurantDetails,
   updateRestaurantDetails,
+  updateAdminProfile,
   clearRestaurantMessages,
+  requestPasswordResetOTP,
+  confirmPasswordReset,
   selectRestaurantDetails,
   selectRestaurantLoading,
   selectRestaurantRefreshing,
   selectRestaurantSuccess,
   selectRestaurantError,
-  selectRestaurantFetched
+  selectRestaurantFetched,
 } from "../../../store/slices/restaurantAdminSlice/restaurantDetailsSlice";
 
 /* ──────────────────────────────────────────────────────────
@@ -41,6 +51,7 @@ const fmt12 = (t) => {
   const [h, m] = t.split(":").map(Number);
   return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h >= 12 ? "PM" : "AM"}`;
 };
+
 const fmtDate = (iso) =>
   iso
     ? new Date(iso).toLocaleString([], {
@@ -53,7 +64,7 @@ const fmtDate = (iso) =>
     : "—";
 
 /* ──────────────────────────────────────────────────────────
-   TOAST BANNER  (same as DishManagement)
+   TOAST BANNER
 ────────────────────────────────────────────────────────── */
 const ToastBanner = ({ success, error }) => {
   if (!success && !error) return null;
@@ -107,22 +118,25 @@ const DetailRow = ({
 /* ──────────────────────────────────────────────────────────
    SECTION CARD  wrapper
 ────────────────────────────────────────────────────────── */
-const SectionCard = ({ icon: Icon, title, children }) => (
-  <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl overflow-hidden">
-    <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/30">
-      <div className="w-8 h-8 rounded-2xl bg-violet-100 dark:bg-violet-500/20 flex items-center justify-center">
-        <Icon size={15} className="text-violet-600 dark:text-violet-400" />
+const SectionCard = ({ icon: Icon, title, children, action = null }) => (
+  <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl overflow-hidden h-full">
+    <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/30">
+      <div className="flex items-center gap-3">
+        <div className="w-8 h-8 rounded-2xl bg-violet-100 dark:bg-violet-500/20 flex items-center justify-center">
+          <Icon size={15} className="text-violet-600 dark:text-violet-400" />
+        </div>
+        <span className="text-sm font-black text-slate-800 dark:text-white tracking-tight">
+          {title}
+        </span>
       </div>
-      <span className="text-sm font-black text-slate-800 dark:text-white tracking-tight">
-        {title}
-      </span>
+      {action && <div>{action}</div>}
     </div>
     <div className="px-5 py-1">{children}</div>
   </div>
 );
 
 /* ──────────────────────────────────────────────────────────
-   EDIT DRAWER
+   FORM HELPERS
 ────────────────────────────────────────────────────────── */
 const inputCls =
   "w-full px-4 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 dark:text-white outline-none focus:ring-2 ring-violet-500/20 text-sm transition-all";
@@ -133,16 +147,351 @@ const FieldLabel = ({ children }) => (
   </label>
 );
 
+const ErrMsg = ({ msg }) =>
+  msg ? (
+    <p className="flex items-center gap-1 mt-1 text-[10px] font-bold text-rose-500">
+      <AlertCircle size={10} className="flex-shrink-0" /> {msg}
+    </p>
+  ) : null;
+
+const fieldCls = (err) =>
+  `${inputCls} ${err ? "border-rose-400 dark:border-rose-500 focus:ring-rose-400/20" : ""}`;
+
 /* ──────────────────────────────────────────────────────────
-   LEAFLET MAP PICKER  (OpenStreetMap + Nominatim, no API key)
-   onAddressPick → fills address, city, state, pincode, lat, lng
+   EDIT ADMIN PROFILE MODAL (Requires Current Password) 
+────────────────────────────────────────────────────────── */
+function EditAdminModal({ admin, onClose }) {
+  const dispatch = useDispatch();
+  const [firstName, setFirstName] = useState(admin?.first_name || "");
+  const [lastName, setLastName] = useState(admin?.last_name || "");
+  const [email, setEmail] = useState(admin?.email || "");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [showPwd, setShowPwd] = useState(false);
+
+  const [loading, setLoading] = useState(false);
+  const [localError, setLocalError] = useState(null);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLocalError(null);
+    if (!firstName.trim()) return setLocalError("First name is required.");
+    if (!email.trim()) return setLocalError("Email address is required.");
+    if (!currentPassword) return setLocalError("Current password is required to save changes.");
+
+    setLoading(true);
+    try {
+      await dispatch(
+        updateAdminProfile({
+          first_name: firstName,
+          last_name: lastName,
+          email: email,
+          current_password: currentPassword,
+        }),
+      ).unwrap();
+      onClose();
+    } catch (err) {
+      setLocalError(err.message || "Failed to update profile.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm transition-opacity"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div
+        className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[2rem] shadow-2xl overflow-hidden"
+        style={{ animation: "slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)" }}
+      >
+        <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/30">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-violet-100 dark:bg-violet-500/20 flex items-center justify-center text-violet-600 dark:text-violet-400">
+              <UserCog size={18} />
+            </div>
+            <div>
+              <h3 className="text-lg font-black text-slate-800 dark:text-white">
+                Edit Profile
+              </h3>
+              <p className="text-[10px] uppercase tracking-widest font-bold text-slate-400 mt-0.5">
+                Admin Account
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl transition-colors"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="p-6">
+          {localError && (
+            <div className="mb-5 flex items-center gap-2 p-3 rounded-xl bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-xs font-bold border border-rose-200 dark:border-rose-500/20">
+              <AlertCircle size={14} /> {localError}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="">
+              <div>
+                <FieldLabel>Full Name *</FieldLabel>
+                <input
+                  type="text"
+                  className={inputCls}
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  placeholder="First name"
+                />
+              </div>
+              
+            </div>
+
+            <div>
+              <FieldLabel>Email Address *</FieldLabel>
+              <input
+                type="email"
+                className={inputCls}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="admin@restaurant.com"
+              />
+            </div>
+
+            <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800">
+              <FieldLabel>Verify Current Password *</FieldLabel>
+              <div className="relative">
+                <input
+                  type={showPwd ? "text" : "password"}
+                  className={`${inputCls} pr-10 border-amber-200 dark:border-amber-900/50 focus:ring-amber-500/20`}
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="Enter your current password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPwd(!showPwd)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  {showPwd ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+              <p className="text-[10px] font-semibold text-slate-400 flex items-center gap-1 mt-1.5">
+                <ShieldAlert size={10} /> Security verification required to save
+                changes.
+              </p>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full mt-4 py-3.5 rounded-2xl bg-violet-600 text-white text-sm font-black hover:bg-violet-700 flex items-center justify-center gap-2 disabled:opacity-60 shadow-lg shadow-violet-500/30 transition-all"
+            >
+              {loading ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <Save size={16} />
+              )}
+              {loading ? "Saving..." : "Save Profile Changes"}
+            </button>
+          </form>
+        </div>
+      </div>
+      <style>{`@keyframes slideUp { from { opacity: 0; transform: translateY(20px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }`}</style>
+    </div>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────
+   PASSWORD RESET MODAL (OTP Based) 🔐
+────────────────────────────────────────────────────────── */
+function PasswordResetModal({ defaultEmail, onClose }) {
+  const dispatch = useDispatch();
+  const [step, setStep] = useState(1);
+  const [email, setEmail] = useState(defaultEmail || "");
+  const [otp, setOtp] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [showPwd, setShowPwd] = useState(false);
+
+  const [loading, setLoading] = useState(false);
+  const [localError, setLocalError] = useState(null);
+
+  const handleRequestOTP = async (e) => {
+    e.preventDefault();
+    setLocalError(null);
+    if (!email) return setLocalError("Admin login email is required.");
+
+    setLoading(true);
+    try {
+      await dispatch(requestPasswordResetOTP(email)).unwrap();
+      setStep(2);
+    } catch (err) {
+      setLocalError(err.message || "Failed to send OTP.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleConfirmReset = async (e) => {
+    e.preventDefault();
+    setLocalError(null);
+    if (!otp || !newPassword)
+      return setLocalError("OTP and New Password are required.");
+    if (newPassword.length < 6)
+      return setLocalError("Password must be at least 6 characters.");
+
+    setLoading(true);
+    try {
+      await dispatch(
+        confirmPasswordReset({ email, otp, new_password: newPassword }),
+      ).unwrap();
+      onClose();
+    } catch (err) {
+      setLocalError(err.message || "Failed to change password.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm transition-opacity"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div
+        className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[2rem] shadow-2xl overflow-hidden"
+        style={{ animation: "slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)" }}
+      >
+        <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/30">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-rose-50 dark:bg-rose-500/10 flex items-center justify-center text-rose-500">
+              <Lock size={18} />
+            </div>
+            <div>
+              <h3 className="text-lg font-black text-slate-800 dark:text-white">
+                Change Password
+              </h3>
+              <p className="text-[10px] uppercase tracking-widest font-bold text-slate-400 mt-0.5">
+                Admin Security
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl transition-colors"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="p-6">
+          {localError && (
+            <div className="mb-5 flex items-center gap-2 p-3 rounded-xl bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-xs font-bold border border-rose-200 dark:border-rose-500/20">
+              <AlertCircle size={14} /> {localError}
+            </div>
+          )}
+
+          {step === 1 ? (
+            <form onSubmit={handleRequestOTP} className="space-y-4">
+              <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed mb-6">
+                Enter your admin account email. We will send a 6-digit One Time
+                Password (OTP) to verify your identity.
+              </p>
+              <div>
+                <FieldLabel>Admin Email Address</FieldLabel>
+                <input
+                  type="email"
+                  className={inputCls}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="admin@restaurant.com"
+                  autoFocus
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full mt-2 py-3.5 rounded-2xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-sm font-black hover:opacity-90 flex items-center justify-center gap-2 disabled:opacity-60 transition-all"
+              >
+                {loading ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <Mail size={16} />
+                )}
+                {loading ? "Sending OTP..." : "Send Verification OTP"}
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleConfirmReset} className="space-y-5">
+              <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed mb-2">
+                We sent a 6-digit code to{" "}
+                <strong className="text-slate-800 dark:text-slate-200">
+                  {email}
+                </strong>
+                . Enter it below along with your new password.
+              </p>
+              <div>
+                <FieldLabel>6-Digit OTP</FieldLabel>
+                <input
+                  type="text"
+                  maxLength={6}
+                  className={`${inputCls} font-mono tracking-widest text-center text-lg`}
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
+                  placeholder="------"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <FieldLabel>New Password</FieldLabel>
+                <div className="relative">
+                  <input
+                    type={showPwd ? "text" : "password"}
+                    className={`${inputCls} pr-10`}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Enter new password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPwd(!showPwd)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    {showPwd ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full mt-2 py-3.5 rounded-2xl bg-rose-500 text-white text-sm font-black hover:bg-rose-600 flex items-center justify-center gap-2 disabled:opacity-60 shadow-lg shadow-rose-500/30 transition-all"
+              >
+                {loading ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <KeyRound size={16} />
+                )}
+                {loading ? "Verifying..." : "Confirm & Change Password"}
+              </button>
+            </form>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────
+   LEAFLET MAP PICKER  
 ────────────────────────────────────────────────────────── */
 function MapPicker({ lat, lng, onAddressPick }) {
   const mapRef = useRef(null);
   const instanceRef = useRef(null);
   const markerRef = useRef(null);
-  const onAddressRef = useRef(onAddressPick); // always-fresh callback ref
-  const skipSyncRef = useRef(false); // prevents feedback loop
+  const onAddressRef = useRef(onAddressPick);
+  const skipSyncRef = useRef(false);
 
   const [query, setQuery] = useState("");
   const [suggestions, setSuggestions] = useState([]);
@@ -153,12 +502,10 @@ function MapPicker({ lat, lng, onAddressPick }) {
   const debounceRef = useRef(null);
   const searchBoxRef = useRef(null);
 
-  // Keep callback ref fresh on every render
   useEffect(() => {
     onAddressRef.current = onAddressPick;
   });
 
-  /* ── Load Leaflet CSS + JS once, then init map ── */
   useEffect(() => {
     function doInit() {
       if (window.L) {
@@ -188,10 +535,8 @@ function MapPicker({ lat, lng, onAddressPick }) {
         markerRef.current = null;
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* ── Sync external lat/lng → marker (skip when we triggered the change) ── */
   useEffect(() => {
     if (skipSyncRef.current) {
       skipSyncRef.current = false;
@@ -205,7 +550,6 @@ function MapPicker({ lat, lng, onAddressPick }) {
     instanceRef.current.setView([la, lo], instanceRef.current.getZoom());
   }, [lat, lng]);
 
-  /* ── Close dropdown on outside click ── */
   useEffect(() => {
     const h = (e) => {
       if (searchBoxRef.current && !searchBoxRef.current.contains(e.target))
@@ -236,13 +580,11 @@ function MapPicker({ lat, lng, onAddressPick }) {
     });
     const marker = L.marker(ll, { draggable: true, icon }).addTo(map);
 
-    // Drag end
     marker.on("dragend", (e) => {
       const pos = e.target.getLatLng();
       handleMapPick(pos.lat, pos.lng);
     });
 
-    // Click on map
     map.on("click", (e) => {
       marker.setLatLng([e.latlng.lat, e.latlng.lng]);
       handleMapPick(e.latlng.lat, e.latlng.lng);
@@ -252,9 +594,8 @@ function MapPicker({ lat, lng, onAddressPick }) {
     markerRef.current = marker;
   }
 
-  /* ── Core: reverse geocode a lat/lng and emit all fields ── */
   async function handleMapPick(la, lo) {
-    skipSyncRef.current = true; // we'll update form ourselves, don't re-sync marker
+    skipSyncRef.current = true;
     const laS = la.toFixed(6);
     const loS = lo.toFixed(6);
     try {
@@ -265,12 +606,10 @@ function MapPicker({ lat, lng, onAddressPick }) {
       const data = await res.json();
       emitAddress(data.address || {}, laS, loS);
     } catch {
-      // emit coords even if geocode fails
       onAddressRef.current({ latitude: laS, longitude: loS });
     }
   }
 
-  /* ── Parse Nominatim address → form fields ── */
   function emitAddress(a, laS, loS) {
     const road =
       a.road || a.pedestrian || a.footway || a.street || a.amenity || "";
@@ -289,7 +628,6 @@ function MapPicker({ lat, lng, onAddressPick }) {
     });
   }
 
-  /* ── Forward search (Nominatim) ── */
   async function searchPlaces(q) {
     if (!q.trim()) {
       setSuggestions([]);
@@ -311,7 +649,6 @@ function MapPicker({ lat, lng, onAddressPick }) {
     setSearching(false);
   }
 
-  /* ── Pick a suggestion from dropdown ── */
   function pickSuggestion(item) {
     const la = parseFloat(item.lat);
     const lo = parseFloat(item.lon);
@@ -329,7 +666,6 @@ function MapPicker({ lat, lng, onAddressPick }) {
     setSuggestions([]);
   }
 
-  /* ── Browser Geolocation (the fixed version) ── */
   const geolocate = () => {
     if (!navigator.geolocation) {
       setGeoError("Geolocation not supported by your browser.");
@@ -343,14 +679,12 @@ function MapPicker({ lat, lng, onAddressPick }) {
         const la = pos.coords.latitude;
         const lo = pos.coords.longitude;
 
-        // 1. Move the map + marker directly (no state involved)
         if (instanceRef.current && markerRef.current) {
           skipSyncRef.current = true;
           markerRef.current.setLatLng([la, lo]);
           instanceRef.current.setView([la, lo], 17);
         }
 
-        // 2. Reverse geocode and fill all form fields
         handleMapPick(la, lo).finally(() => setLocating(false));
       },
       (err) => {
@@ -375,10 +709,8 @@ function MapPicker({ lat, lng, onAddressPick }) {
 
   return (
     <div className="space-y-2">
-      {/* Search + Locate row */}
       <div ref={searchBoxRef} className="relative">
         <div className="relative flex items-center gap-2">
-          {/* Search input */}
           <div className="relative flex-1">
             <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
               {searching ? (
@@ -397,7 +729,6 @@ function MapPicker({ lat, lng, onAddressPick }) {
             />
           </div>
 
-          {/* Locate me — separate button, clearly visible */}
           <button
             type="button"
             onClick={geolocate}
@@ -414,14 +745,12 @@ function MapPicker({ lat, lng, onAddressPick }) {
           </button>
         </div>
 
-        {/* Geo error */}
         {geoError && (
           <p className="mt-1.5 text-[10px] font-bold text-rose-500 flex items-center gap-1">
             <AlertCircle size={11} /> {geoError}
           </p>
         )}
 
-        {/* Dropdown suggestions */}
         {showDrop && suggestions.length > 0 && (
           <div className="absolute top-full left-0 right-0 mt-1.5 z-[1000] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl overflow-hidden max-h-64 overflow-y-auto">
             {suggestions.map((item, i) => (
@@ -449,7 +778,6 @@ function MapPicker({ lat, lng, onAddressPick }) {
         )}
       </div>
 
-      {/* Map */}
       <div
         className="rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700 relative"
         style={{ height: 280 }}
@@ -465,7 +793,9 @@ function MapPicker({ lat, lng, onAddressPick }) {
   );
 }
 
-/* ── Validation rules ── */
+/* ──────────────────────────────────────────────────────────
+   VALIDATION RULES
+────────────────────────────────────────────────────────── */
 const VALIDATORS = {
   name: (v) => (!v.trim() ? "Restaurant name is required" : null),
   phone: (v) =>
@@ -533,18 +863,9 @@ function validate(form) {
   return errs;
 }
 
-/* ── Small inline error message ── */
-const ErrMsg = ({ msg }) =>
-  msg ? (
-    <p className="flex items-center gap-1 mt-1 text-[10px] font-bold text-rose-500">
-      <AlertCircle size={10} className="flex-shrink-0" /> {msg}
-    </p>
-  ) : null;
-
-/* ── Input border helper ── */
-const fieldCls = (err) =>
-  `${inputCls} ${err ? "border-rose-400 dark:border-rose-500 focus:ring-rose-400/20" : ""}`;
-
+/* ──────────────────────────────────────────────────────────
+   EDIT DRAWER (Restaurant Details)
+────────────────────────────────────────────────────────── */
 function EditDrawer({ restaurant, onClose, onSave, saving }) {
   const [form, setForm] = useState({
     name: restaurant.name ?? "",
@@ -566,7 +887,6 @@ function EditDrawer({ restaurant, onClose, onSave, saving }) {
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
 
-  /* update field + clear its error */
   const set = (k) => (e) => {
     const val = e.target.value;
     setForm((f) => {
@@ -579,7 +899,6 @@ function EditDrawer({ restaurant, onClose, onSave, saving }) {
     });
   };
 
-  /* mark touched on blur + run validation */
   const blur = (k) => () => {
     setTouched((t) => ({ ...t, [k]: true }));
     const msg = VALIDATORS[k]?.(form[k] ?? "", form) ?? null;
@@ -588,16 +907,14 @@ function EditDrawer({ restaurant, onClose, onSave, saving }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    // Validate all fields at once
     const errs = validate(form);
-    // Mark everything touched
     const allTouched = Object.keys(VALIDATORS).reduce(
       (a, k) => ({ ...a, [k]: true }),
       {},
     );
     setTouched(allTouched);
     setErrors(errs);
-    if (Object.keys(errs).length > 0) return; // stop if any error
+    if (Object.keys(errs).length > 0) return;
 
     const payload = { ...form };
     if (payload.opening_time?.length === 5) payload.opening_time += ":00";
@@ -623,7 +940,6 @@ function EditDrawer({ restaurant, onClose, onSave, saving }) {
         className="w-full max-w-[520px] h-full bg-white dark:bg-slate-900 flex flex-col shadow-2xl"
         style={{ animation: "slideRight .28s cubic-bezier(.32,1,.5,1)" }}
       >
-        {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex-shrink-0 bg-slate-50/60 dark:bg-slate-800/30">
           <div>
             <h2 className="text-lg font-black text-slate-900 dark:text-white">
@@ -647,13 +963,11 @@ function EditDrawer({ restaurant, onClose, onSave, saving }) {
           </button>
         </div>
 
-        {/* Scrollable form */}
         <form
           onSubmit={handleSubmit}
           className="flex-1 overflow-y-auto px-6 pb-8"
           noValidate
         >
-          {/* ── Basic Info ── */}
           <SecHead label="Basic Info" />
           <div className="space-y-3">
             <div>
@@ -694,7 +1008,6 @@ function EditDrawer({ restaurant, onClose, onSave, saving }) {
             </div>
           </div>
 
-          {/* ── Location ── */}
           <SecHead label="Location" />
           <div className="space-y-3">
             <div>
@@ -773,7 +1086,6 @@ function EditDrawer({ restaurant, onClose, onSave, saving }) {
                 lng={form.longitude}
                 onAddressPick={(fields) => {
                   setForm((f) => ({ ...f, ...fields }));
-                  // clear map-filled field errors immediately
                   setErrors((er) => ({
                     ...er,
                     address: null,
@@ -792,7 +1104,6 @@ function EditDrawer({ restaurant, onClose, onSave, saving }) {
             </div>
           </div>
 
-          {/* ── Hours & Status ── */}
           <SecHead label="Hours &amp; Status" />
           <div className="space-y-3">
             <div className="flex items-center justify-between p-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
@@ -854,7 +1165,6 @@ function EditDrawer({ restaurant, onClose, onSave, saving }) {
             </div>
           </div>
 
-          {/* ── Compliance ── */}
           <SecHead label="Compliance" />
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -883,7 +1193,6 @@ function EditDrawer({ restaurant, onClose, onSave, saving }) {
             </div>
           </div>
 
-          {/* Summary error banner shown only on submit-attempt */}
           {errorCount > 0 && Object.keys(touched).length > 0 && (
             <div className="mt-5 flex items-start gap-3 p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20">
               <AlertCircle
@@ -897,7 +1206,6 @@ function EditDrawer({ restaurant, onClose, onSave, saving }) {
             </div>
           )}
 
-          {/* Actions */}
           <div className="flex gap-3 mt-6">
             <button
               type="button"
@@ -937,20 +1245,25 @@ export default function RestaurantDetailsPage() {
   const isRefreshing = useSelector(selectRestaurantRefreshing);
   const successMsg = useSelector(selectRestaurantSuccess);
   const errorMsg = useSelector(selectRestaurantError);
-  const detailsFeched = useSelector(selectRestaurantFetched)
+  const detailsFeched = useSelector(selectRestaurantFetched);
+
   const [editOpen, setEditOpen] = useState(false);
+  const [pwdModalOpen, setPwdModalOpen] = useState(false);
+  const [adminModalOpen, setAdminModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if(!detailsFeched)
-    dispatch(fetchRestaurantDetails());
-  }, [dispatch]);
+    if (!detailsFeched) dispatch(fetchRestaurantDetails());
+  }, [dispatch, detailsFeched]);
 
   useEffect(() => {
     if (successMsg || errorMsg) {
       setSaving(false);
-      if (successMsg) setEditOpen(false);
-      const t = setTimeout(() => dispatch(clearRestaurantMessages()), 3500);
+      // Close side-drawers on success (modals handle their own close)
+      if (successMsg) {
+        setEditOpen(false);
+      }
+      const t = setTimeout(() => dispatch(clearRestaurantMessages()), 4000);
       return () => clearTimeout(t);
     }
   }, [successMsg, errorMsg, dispatch]);
@@ -960,7 +1273,6 @@ export default function RestaurantDetailsPage() {
     dispatch(updateRestaurantDetails(payload));
   };
 
-  /* ── Skeleton ── */
   if (loading || !restaurant) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-[#0f172a] p-4 lg:p-8 transition-colors duration-300">
@@ -988,7 +1300,6 @@ export default function RestaurantDetailsPage() {
           }
         `}</style>
 
-        {/* Header */}
         <div className="flex justify-between items-start mb-8">
           <div className="space-y-2.5">
             <div className="skel h-9 w-64 rounded-2xl" />
@@ -1000,26 +1311,22 @@ export default function RestaurantDetailsPage() {
           </div>
         </div>
 
-        {/* Stat strip */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
           {[...Array(4)].map((_, i) => (
             <div key={i} className="skel h-20 rounded-3xl" />
           ))}
         </div>
 
-        {/* Detail cards — mimic the real card structure */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {[5, 3, 3, 3].map((rows, ci) => (
             <div
               key={ci}
               className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl overflow-hidden"
             >
-              {/* Card header */}
               <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/30">
                 <div className="skel w-8 h-8 rounded-2xl flex-shrink-0" />
                 <div className="skel h-4 w-36 rounded-xl" />
               </div>
-              {/* Card rows */}
               <div className="px-5 py-2 divide-y divide-slate-100 dark:divide-slate-800">
                 {[...Array(rows)].map((_, ri) => (
                   <div key={ri} className="flex items-center gap-3 py-3">
@@ -1041,6 +1348,11 @@ export default function RestaurantDetailsPage() {
   }
 
   const r = restaurant;
+  const admin = r.admin_details;
+  const adminName = admin
+    ? `${admin.first_name || ""} ${admin.last_name || ""}`.trim()
+    : "—";
+
   const successText = typeof successMsg === "string" ? successMsg : null;
   const errorText =
     errorMsg && typeof errorMsg === "object"
@@ -1062,7 +1374,16 @@ export default function RestaurantDetailsPage() {
         </div>
 
         {/* Actions */}
-        <div className="flex items-center gap-3 flex-shrink-0">
+        <div className="flex flex-wrap items-center gap-3 flex-shrink-0">
+          {/* Change Password */}
+          <button
+            onClick={() => setPwdModalOpen(true)}
+            className="p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+            title="Change Admin Password"
+          >
+            <Lock size={18} />
+          </button>
+
           {/* Refresh */}
           <button
             onClick={() => dispatch(fetchRestaurantDetails())}
@@ -1086,7 +1407,7 @@ export default function RestaurantDetailsPage() {
             }`}
           >
             {editOpen ? <X size={17} /> : <Edit3 size={17} />}
-            {editOpen ? "Close Editor" : "Edit Details"}
+            {editOpen ? "Close Editor" : "Edit Restaurant"}
           </button>
         </div>
       </header>
@@ -1161,6 +1482,46 @@ export default function RestaurantDetailsPage() {
           <DetailRow icon={Globe} label="Longitude" value={r.longitude} mono />
         </SectionCard>
 
+        {/* Admin Account */}
+        <SectionCard
+          icon={User}
+          title="Admin Account"
+          action={
+            <button
+              onClick={() => setAdminModalOpen(true)}
+              className="text-[10px] uppercase font-black tracking-widest text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 px-3 py-1.5 rounded-lg hover:bg-violet-50 dark:hover:bg-violet-500/10 transition-colors"
+            >
+              Edit Profile
+            </button>
+          }
+        >
+          {admin ? (
+            <>
+              <DetailRow icon={User} label="Admin Name" value={adminName} />
+              <DetailRow icon={Mail} label="Admin Email" value={admin.email} />
+              <DetailRow
+                icon={Phone}
+                label="Mobile Number"
+                value={admin.mobile_number}
+              />
+              <DetailRow
+                icon={Hash}
+                label="Account ID"
+                value={admin.public_id}
+                mono
+              />
+              <div className="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                  <DetailRow icon={CalendarDays} label="Created" value={fmtDate(admin.created_at)} />
+                  <DetailRow icon={Clock} label="Last Updated" value={fmtDate(admin.updated_at)} />
+              </div>
+            </>
+          ) : (
+            <div className="py-4 text-center text-sm text-slate-500">
+              No admin details available
+            </div>
+          )}
+        </SectionCard>
+
         {/* Operating Hours */}
         <SectionCard icon={Clock} title="Operating Hours">
           <DetailRow
@@ -1194,34 +1555,53 @@ export default function RestaurantDetailsPage() {
         </SectionCard>
 
         {/* Compliance */}
-        <SectionCard icon={FileText} title="Compliance & Licensing">
-          <DetailRow
-            icon={FileText}
-            label="GST Number"
-            value={r.gst_number}
-            mono
-          />
-          <DetailRow
-            icon={FileText}
-            label="FSSAI License"
-            value={r.fssai_license}
-            mono
-          />
-          <DetailRow
-            icon={Clock}
-            label="Last Updated"
-            value={fmtDate(r.updated_at)}
-          />
-        </SectionCard>
+        <div className="lg:col-span-2">
+          <SectionCard icon={FileText} title="Compliance & Licensing">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4">
+              <DetailRow
+                icon={FileText}
+                label="GST Number"
+                value={r.gst_number}
+                mono
+              />
+              <DetailRow
+                icon={FileText}
+                label="FSSAI License"
+                value={r.fssai_license}
+                mono
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <DetailRow icon={CalendarDays} label="Created" value={fmtDate(r.created_at)} />
+                <DetailRow icon={Clock} label="Last Updated" value={fmtDate(r.updated_at)} />
+            </div>
+          </SectionCard>
+        </div>
       </div>
 
-      {/* ── EDIT DRAWER ── */}
+      {/* ── EDIT RESTAURANT DRAWER ── */}
       {editOpen && (
         <EditDrawer
           restaurant={r}
           onClose={() => setEditOpen(false)}
           onSave={handleSave}
           saving={saving}
+        />
+      )}
+
+      {/* ── EDIT ADMIN MODAL ── */}
+      {adminModalOpen && admin && (
+        <EditAdminModal
+          admin={admin}
+          onClose={() => setAdminModalOpen(false)}
+        />
+      )}
+
+      {/* ── PASSWORD RESET MODAL ── */}
+      {pwdModalOpen && (
+        <PasswordResetModal
+          defaultEmail={admin?.email || r.email}
+          onClose={() => setPwdModalOpen(false)}
         />
       )}
     </div>
