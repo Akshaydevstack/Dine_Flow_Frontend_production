@@ -8,13 +8,22 @@ import { v4 as uuidv4 } from "uuid";
 // Create Order
 export const createOrder = createAsyncThunk(
   "order/create",
-  async ({ table_public_id,special_request,items }, thunkApi) => {
+  async (
+    { table_public_id, special_request, items, user_latitude, user_longitude },
+    thunkApi
+  ) => {
     try {
       const idempotencyKey = uuidv4();
 
       const res = await axiosClient.post(
         "/order/customer/create/",
-        { table_public_id,special_request,items },
+        {
+          table_public_id,
+          special_request,
+          items,
+          user_latitude,  // ✨ New: Send location to backend
+          user_longitude, // ✨ New: Send location to backend
+        },
         {
           headers: {
             "X-Idempotency-Key": idempotencyKey,
@@ -24,9 +33,13 @@ export const createOrder = createAsyncThunk(
 
       return res.data; // unified order response
     } catch (err) {
-      return thunkApi.rejectWithValue(
-        err.response?.data || { message: "Failed to create order" }
-      );
+      // Return the specific location error string if it exists, otherwise return the whole error object
+      const errorMessage =
+        err.response?.data?.location ||
+        err.response?.data ||
+        { message: "Failed to create order" };
+
+      return thunkApi.rejectWithValue(errorMessage);
     }
   }
 );

@@ -10,6 +10,7 @@ import {
   ChefHat,
   AlertCircle,
   Loader2,
+  MapPin,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 
@@ -27,9 +28,14 @@ import OrderSuccessModal from "../components/common/OrderSuccessModal";
 export default function Cart() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
+
   const [showSuccess, setShowSuccess] = useState(false);
   const [loadingOrder, setLoadingOrder] = useState(false);
   const [specialRequest, setSpecialRequest] = useState("");
+
+  // Validation States
+  const [locatingUser, setLocatingUser] = useState(false);
+  const [orderError, setOrderError] = useState(""); // Changed from geofenceError to catch ALL errors
 
   const {
     items,
@@ -43,8 +49,9 @@ export default function Cart() {
 
   const { currentOrder } = useAppSelector((state) => state.orders);
 
-  // Get session details
-  const sessionDetails = JSON.parse(localStorage.getItem("session_details") || "{}");
+  const sessionDetails = JSON.parse(
+    localStorage.getItem("session_details") || "{}",
+  );
   const table_public_id = sessionDetails?.current_table_id;
   const table_number = sessionDetails?.table_number || "01";
 
@@ -70,6 +77,30 @@ export default function Cart() {
     dispatch(removeFromCart(dish_id));
   };
 
+  /* ---------------- DRF ERROR PARSER ---------------- */
+  // Extracts the first available error string from a DRF payload
+  const extractErrorMessage = (payload) => {
+    if (!payload) return "Failed to place order.";
+    if (typeof payload === "string") return payload;
+
+    // Standard DRF format: { field: ["error message"] }
+    const keys = Object.keys(payload);
+    if (keys.length > 0) {
+      const firstError = payload[keys[0]];
+      if (Array.isArray(firstError)) {
+        return firstError[0]; // e.g. payload.location[0]
+      } else if (typeof firstError === "string") {
+        return firstError;
+      }
+    }
+
+    // Fallback if there is a flat message
+    if (payload.message) return payload.message;
+    if (payload.detail) return payload.detail;
+
+    return "Failed to place order.";
+  };
+
   /* ---------------- PLACE ORDER ---------------- */
   const handlePlaceOrder = async () => {
     if (items.length === 0) return;
@@ -79,22 +110,72 @@ export default function Cart() {
       return;
     }
 
+    setOrderError("");
+    setLocatingUser(true);
+
+    let userLat = null;
+    let userLng = null;
+
+    // STEP 1: Just get the coordinates.
+    if (navigator.geolocation) {
+      try {
+        const position = await new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0,
+          });
+        });
+        userLat = position.coords.latitude;
+        userLng = position.coords.longitude;
+      } catch (err) {
+        setLocatingUser(false);
+        if (err.code === 1) {
+          setOrderError(
+            "Please allow location access to place a dine-in order.",
+          );
+        } else {
+          setOrderError(
+            "Could not determine your location. Please check your device settings.",
+          );
+        }
+        return;
+      }
+    } else {
+      setLocatingUser(false);
+      setOrderError("Geolocation is not supported by your browser.");
+      return;
+    }
+
+    // STEP 2: Send everything to the backend
+    setLocatingUser(false);
     setLoadingOrder(true);
+
     const orderItems = items.map((item) => ({
       dish_id: item.dish_id,
       quantity: item.quantity,
     }));
 
-    const action = await dispatch(createOrder({ 
-      table_public_id, 
-      items: orderItems,
-      special_request: specialRequest // Add special request to order
-    }));
+    const action = await dispatch(
+      createOrder({
+        table_public_id,
+        items: orderItems,
+        special_request: specialRequest,
+        user_latitude: userLat,
+        user_longitude: userLng,
+      }),
+    );
 
+    // STEP 3: Handle the backend's decision
     if (createOrder.fulfilled.match(action)) {
       dispatch(clearCart());
       setShowSuccess(true);
+    } else {
+      // ✅ Dynamically extract the DRF error message here
+      const errorMessage = extractErrorMessage(action.payload);
+      setOrderError(errorMessage);
     }
+
     setLoadingOrder(false);
   };
 
@@ -126,7 +207,8 @@ export default function Cart() {
                 Your Cart
               </h1>
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                {items.length} {items.length === 1 ? 'item' : 'items'} • Table {table_number}
+                {items.length} {items.length === 1 ? "item" : "items"} • Table{" "}
+                {table_number}
               </p>
             </div>
           </div>
@@ -186,8 +268,9 @@ export default function Cart() {
             <div className="space-y-3">
               {items.map((item) => {
                 const itemSavings = parseFloat(item.item_discount) || 0;
-                const hasItemDiscount = itemSavings > 0 && item.original_price !== "None";
-                
+                const hasItemDiscount =
+                  itemSavings > 0 && item.original_price !== "None";
+
                 return (
                   <div
                     key={item.dish_id}
@@ -204,7 +287,8 @@ export default function Cart() {
                                 className="w-full h-full object-cover"
                                 onError={(e) => {
                                   e.target.onerror = null;
-                                  e.target.src = "https://via.placeholder.com/64?text=Food";
+                                  e.target.src =
+                                    "https://via.placeholder.com/64?text=Food";
                                 }}
                               />
                             ) : (
@@ -235,7 +319,10 @@ export default function Cart() {
                                       ₹{parseFloat(item.price).toFixed(2)}
                                     </span>
                                     <span className="text-xs text-gray-400 line-through">
-                                      ₹{parseFloat(item.original_price).toFixed(2)}
+                                      ₹
+                                      {parseFloat(item.original_price).toFixed(
+                                        2,
+                                      )}
                                     </span>
                                     {itemSavings > 0 && (
                                       <span className="text-[10px] bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 px-1.5 py-0.5 rounded">
@@ -261,7 +348,9 @@ export default function Cart() {
                           <div className="flex items-center justify-between mt-3">
                             <div className="flex items-center bg-gray-100 dark:bg-gray-700 rounded-lg">
                               <button
-                                onClick={() => handleDecrease(item.dish_id, item.quantity)}
+                                onClick={() =>
+                                  handleDecrease(item.dish_id, item.quantity)
+                                }
                                 disabled={item.quantity <= 1}
                                 className="p-1.5 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-l-lg transition-colors disabled:opacity-50"
                               >
@@ -271,7 +360,9 @@ export default function Cart() {
                                 {item.quantity}
                               </span>
                               <button
-                                onClick={() => handleIncrease(item.dish_id, item.quantity)}
+                                onClick={() =>
+                                  handleIncrease(item.dish_id, item.quantity)
+                                }
                                 className="p-1.5 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-r-lg transition-colors"
                               >
                                 <Plus className="w-3 h-3" />
@@ -291,12 +382,11 @@ export default function Cart() {
               })}
             </div>
 
-            {/* Special Request - New Section */}
+            {/* Special Request */}
             <div className="mt-4">
               <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                 <ChefHat className="w-4 h-4 text-purple-500" />
-                Special Request
-                <span className="text-xs font-normal text-gray-400">(optional)</span>
+                <span className="flex-1">Special Request</span>
               </label>
               <textarea
                 value={specialRequest}
@@ -427,14 +517,17 @@ export default function Cart() {
                         </span>
                       </div>
                       <span className="text-green-600 dark:text-green-400 text-xs bg-green-50 dark:bg-green-900/20 px-2 py-0.5 rounded-full">
-                        {Math.round((totalSavings / parsedOriginalSubtotal) * 100)}% OFF
+                        {Math.round(
+                          (totalSavings / parsedOriginalSubtotal) * 100,
+                        )}
+                        % OFF
                       </span>
                     </div>
                   </div>
                 )}
               </div>
 
-              {/* No Table Warning */}
+              {/* Warnings / Errors */}
               {!table_public_id && (
                 <div className="p-3 bg-amber-50 dark:bg-amber-950/30 rounded-xl border border-amber-200 dark:border-amber-900/50 flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
@@ -444,13 +537,33 @@ export default function Cart() {
                 </div>
               )}
 
+              {/* ✅ UPDATED ERROR DISPLAY */}
+              {orderError && (
+                <div className="p-3 bg-red-50 dark:bg-red-950/30 rounded-xl border border-red-200 dark:border-red-900/50 flex items-center gap-2 animate-pulse">
+                  <MapPin className="w-4 h-4 text-red-600 dark:text-red-400 flex-shrink-0" />
+                  <p className="text-xs font-semibold text-red-700 dark:text-red-300">
+                    {orderError}
+                  </p>
+                </div>
+              )}
+
               {/* Place Order Button */}
               <button
                 onClick={handlePlaceOrder}
-                disabled={loadingOrder || items.length === 0 || !table_public_id}
+                disabled={
+                  loadingOrder ||
+                  locatingUser ||
+                  items.length === 0 ||
+                  !table_public_id
+                }
                 className="w-full bg-gradient-to-r from-purple-600 to-pink-500 text-white py-3.5 rounded-xl font-bold text-base shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none"
               >
-                {loadingOrder ? (
+                {locatingUser ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Verifying location...
+                  </span>
+                ) : loadingOrder ? (
                   <span className="flex items-center justify-center gap-2">
                     <Loader2 className="w-4 h-4 animate-spin" />
                     Processing...
