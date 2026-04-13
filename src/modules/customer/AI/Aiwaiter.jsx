@@ -562,8 +562,37 @@ export default function AiWaiter({ onClose }) {
     setMessages(prev => [...prev, { id: idRef.current++, role: "user", content: trimmed, time: now(), tools: [] }]);
     setInput("");
     setLoading(true);
+
+    // 📍 FETCH LOCATION BEFORE SENDING
+    let userLat = null;
+    let userLng = null;
+    if (navigator.geolocation) {
+      try {
+        const pos = await new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 4000, // Only wait 4 seconds max so the chat doesn't lag
+            maximumAge: 0,
+          });
+        });
+        userLat = pos.coords.latitude;
+        userLng = pos.coords.longitude;
+      } catch (e) {
+        console.warn("AI Waiter location fetch failed:", e);
+      }
+    }
+
     try {
-      const { data } = await axiosClient.post("/ai/ai-waiter/", { message: trimmed }, { headers: { "X-Table-Id": tableId || "" } });
+      const { data } = await axiosClient.post(
+        "/ai/ai-waiter/", 
+        { 
+          message: trimmed,
+          latitude: userLat,   // Pass to backend
+          longitude: userLng   // Pass to backend
+        }, 
+        { headers: { "X-Table-Id": tableId || "" } }
+      );
+      
       const msg = {
         id: idRef.current++, role: "assistant", time: now(),
         content: data.response || "", bottom_text: data.bottom_text || null,
@@ -583,6 +612,8 @@ export default function AiWaiter({ onClose }) {
       setTimeout(() => inputRef.current?.focus(), 100);
     }
   }, [loading, tableId, cancelAnim, startStream]);
+
+  
 
   const handleClearChat = () => {
     cancelAnim();
