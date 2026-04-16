@@ -154,7 +154,7 @@ export default function Cart() {
           // Stage 1 failed — fall through to Stage 2
         },
         {
-          enableHighAccuracy: false, // Fast, uses network-based location
+          enableHighAccuracy: true, // Fast, uses network-based location
           timeout: 8000,
           maximumAge: 30000, // Accept a cached location up to 30s old
         },
