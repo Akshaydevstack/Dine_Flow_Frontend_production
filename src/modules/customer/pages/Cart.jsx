@@ -101,27 +101,22 @@ export default function Cart() {
   };
 
   /* ---------------- DISTANCE FORMATTER ---------------- */
-  // ⚡ FIX: Updated to catch "(Distance: 2128m)" and convert to "(Distance: 2.13 km)"
   const formatDistanceError = (errorString) => {
     if (typeof errorString !== "string") {
       return "An error occurred while placing your order.";
     }
 
-    // Look specifically for the exact format your backend sends
     const meterRegex = /\(Distance:\s*([0-9.,]+)m\)/i;
     const match = errorString.match(meterRegex);
 
     if (match) {
       const meters = parseFloat(match[1].replace(/,/g, ""));
-
       if (!isNaN(meters) && meters >= 1000) {
         const kilometers = (meters / 1000).toFixed(2);
-        // Replace "(Distance: 2128m)" with "(Distance: 2.13 km)"
         return errorString.replace(match[0], `(Distance: ${kilometers} km)`);
       }
     }
 
-    // Also keep a generic catch-all just in case the backend format changes slightly
     const genericMeterRegex = /([0-9.,]+)\s*meters?/i;
     const genericMatch = errorString.match(genericMeterRegex);
     if (genericMatch) {
@@ -133,6 +128,59 @@ export default function Cart() {
     }
 
     return errorString;
+  };
+
+  /* ---------------- GEOLOCATION HELPER ---------------- */
+  // ⚡ FIX: Two-stage approach — fast low-accuracy first, then high-accuracy fallback.
+  // This solves the Android cold-GPS timeout issue that iOS never hits.
+  const getUserLocation = () => {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject({ code: 0, message: "Geolocation not supported" });
+        return;
+      }
+
+      let resolved = false;
+
+      // Stage 1: Try low-accuracy first (uses WiFi/cell tower — near instant on Android)
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          if (!resolved) {
+            resolved = true;
+            resolve(position);
+          }
+        },
+        () => {
+          // Stage 1 failed — fall through to Stage 2
+        },
+        {
+          enableHighAccuracy: false, // Fast, uses network-based location
+          timeout: 8000,
+          maximumAge: 30000, // Accept a cached location up to 30s old
+        },
+      );
+
+      // Stage 2: High-accuracy GPS attempt in parallel (takes longer on Android)
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          if (!resolved) {
+            resolved = true;
+            resolve(position);
+          }
+        },
+        (err) => {
+          if (!resolved) {
+            resolved = true;
+            reject(err);
+          }
+        },
+        {
+          enableHighAccuracy: true, // GPS-based, slower on Android cold start
+          timeout: 20000, // ⚡ FIX: Was 10000 — Android needs up to 20s
+          maximumAge: 0,
+        },
+      );
+    });
   };
 
   /* ---------------- PLACE ORDER ---------------- */
@@ -150,33 +198,34 @@ export default function Cart() {
     let userLat = null;
     let userLng = null;
 
-    if (navigator.geolocation) {
-      try {
-        const position = await new Promise((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject, {
-            enableHighAccuracy: true,
-            timeout: 10000,
-            maximumAge: 0,
-          });
-        });
-        userLat = position.coords.latitude;
-        userLng = position.coords.longitude;
-      } catch (err) {
-        setLocatingUser(false);
-        if (err.code === 1) {
-          setOrderError(
-            "Please allow location access to place a dine-in order.",
-          );
-        } else {
-          setOrderError(
-            "Could not determine your location. Please check your device settings.",
-          );
-        }
-        return;
-      }
-    } else {
+    try {
+      const position = await getUserLocation();
+      userLat = position.coords.latitude;
+      userLng = position.coords.longitude;
+    } catch (err) {
       setLocatingUser(false);
-      setOrderError("Geolocation is not supported by your browser.");
+
+      // ⚡ FIX: Handle all three GeolocationPositionError codes explicitly
+      if (err.code === 1) {
+        // PERMISSION_DENIED
+        setOrderError(
+          "Location permission denied. Please allow location access in your browser settings and try again.",
+        );
+      } else if (err.code === 2) {
+        // POSITION_UNAVAILABLE — GPS off or location services disabled at OS level
+        setOrderError(
+          "Location unavailable. Please enable GPS / Location Services on your device and try again.",
+        );
+      } else if (err.code === 3) {
+        // TIMEOUT — very common on Android cold GPS start
+        setOrderError(
+          "Location request timed out. Please move to an open area, enable High Accuracy mode, and try again.",
+        );
+      } else {
+        setOrderError(
+          "Could not determine your location. Please check your device settings.",
+        );
+      }
       return;
     }
 
