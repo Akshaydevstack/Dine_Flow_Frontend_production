@@ -5,14 +5,17 @@ import axiosClient from "../../../api/axiosClient";
    HELPERS
 ========================================================= */
 
-const getOrderingParam = (sortBy) =>
-  ({
+// ⚡ FIX: Added [sortBy] to properly extract the string, returning null if empty
+const getOrderingParam = (sortBy) => {
+  if (!sortBy) return null;
+  return {
     priority:  "-priority",
     priceLow:  "price",
     priceHigh: "-price",
     newest:    "-created_at",
     popular:   "-total_orders",
-  })[sortBy] || "-priority";
+  }[sortBy] || null;
+};
 
 const generateCacheKey = (filters) =>
   JSON.stringify({
@@ -103,11 +106,17 @@ export const fetchAdminDishes = createAsyncThunk(
         return { ...state.adminDishes.cache[cacheKey], cacheKey, fromCache: true, isLoadMore };
       }
 
+      // ⚡ FIX: Base params without ordering
       const params = {
         page:      filters.currentPage,
         page_size: filters.itemsPerPage,
-        ordering:  getOrderingParam(filters.sortBy),
       };
+
+      // ⚡ FIX: Only attach ordering if the user has actively selected a sort option
+      const ordering = getOrderingParam(filters.sortBy);
+      if (ordering) {
+        params.ordering = ordering;
+      }
 
       if (filters.searchQuery?.trim())    params.search                 = filters.searchQuery.trim();
       if (filters.category)               params["category__public_id"] = filters.category;
@@ -196,7 +205,7 @@ const initialFilters = {
   isAvailable:  null,
   priceMin:     0,
   priceMax:     null,
-  sortBy:       "priority",
+  sortBy:       "", // ⚡ FIX: Empty default so backend handles it
   currentPage:  1,
   itemsPerPage: 20,
 };
@@ -253,6 +262,7 @@ const adminDishSlice = createSlice({
     filters:    initialFilters,
     pagination: { totalItems: 0, hasNext: false },
     cache:      {},
+    needsCleanRefetch: false, // For deduplication edge cases
   },
 
   reducers: {
@@ -277,7 +287,6 @@ const adminDishSlice = createSlice({
       state.cache = {};
     },
     setDishFilter(state, { payload }) {
-      // Generic filter setter — accepts partial filter object
       Object.assign(state.filters, payload);
       state.filters.currentPage = 1;
       state.cache = {};
@@ -353,10 +362,8 @@ const adminDishSlice = createSlice({
         if (page > 1) {
           state.loadingMore = true;
         } else if (state.fetched) {
-          // Already have data — dim grid, don't wipe it
           state.isRefreshing = true;
         } else {
-          // Very first load
           state.loading = true;
         }
         state.error = null;
@@ -371,12 +378,15 @@ const adminDishSlice = createSlice({
 
         if (isLoadMore) {
           const seen = new Set(state.dishes.map((d) => d.public_id));
-          state.dishes = [
-            ...state.dishes,
-            ...results.filter((d) => !seen.has(d.public_id)),
-          ];
+          const newDishes = results.filter((d) => !seen.has(d.public_id));
+          state.dishes = [...state.dishes, ...newDishes];
+
+          if (state.dishes.length < count && !next) {
+            state.needsCleanRefetch = true;
+          }
         } else {
           state.dishes = results;
+          state.needsCleanRefetch = false;
         }
 
         state.pagination = { totalItems: count, hasNext: !!next };
@@ -457,3 +467,4 @@ export const selectAdminCategoriesCount    = (s) => s.adminDishes.categoriesCoun
 export const selectAdminCategoriesLoading  = (s) => s.adminDishes.categoriesLoading;
 export const selectAdminCategoryError      = (s) => s.adminDishes.categoryError;
 export const selectAdminCategorySuccess    = (s) => s.adminDishes.categorySuccess;
+export const selectAdminDishNeedsRefetch   = (s) => s.adminDishes.needsCleanRefetch;

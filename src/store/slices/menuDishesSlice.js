@@ -5,7 +5,10 @@ import axiosClient from "../../api/axiosClient";
    QUERY HELPERS
 ========================================================= */
 
+// ⚡ FIX 1: Return null if no sorting is explicitly requested
 const getSortingParam = (sortBy) => {
+  if (!sortBy) return null;
+  
   const sortMap = {
     priority: "-priority",
     "price-low": "price",
@@ -14,7 +17,7 @@ const getSortingParam = (sortBy) => {
     newest: "-created_at",
   };
 
-  return sortMap[sortBy] || "-priority";
+  return sortMap[sortBy] || null;
 };
 
 const buildQueryParams = (filters) => {
@@ -48,8 +51,10 @@ const buildQueryParams = (filters) => {
     params.is_spicy = filters.isSpicy;
   }
 
-  if (filters.sortBy) {
-    params.ordering = getSortingParam(filters.sortBy);
+  // ⚡ FIX 2: Only attach the ordering param if a valid sort option exists
+  const ordering = getSortingParam(filters.sortBy);
+  if (ordering) {
+    params.ordering = ordering;
   }
 
   return params;
@@ -152,7 +157,7 @@ const initialFilters = {
   priceRange: { min: 0, max: 10000 },
   isVeg: null,
   isSpicy: null,
-  sortBy: "priority",
+  sortBy: "", // ⚡ FIX 3: Start with an empty string so no ordering is forced
   currentPage: 1,
   itemsPerPage: 12,
 };
