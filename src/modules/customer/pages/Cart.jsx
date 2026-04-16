@@ -35,7 +35,7 @@ export default function Cart() {
 
   // Validation States
   const [locatingUser, setLocatingUser] = useState(false);
-  const [orderError, setOrderError] = useState(""); // Changed from geofenceError to catch ALL errors
+  const [orderError, setOrderError] = useState("");
 
   const {
     items,
@@ -78,27 +78,47 @@ export default function Cart() {
   };
 
   /* ---------------- DRF ERROR PARSER ---------------- */
-  // Extracts the first available error string from a DRF payload
   const extractErrorMessage = (payload) => {
     if (!payload) return "Failed to place order.";
     if (typeof payload === "string") return payload;
 
-    // Standard DRF format: { field: ["error message"] }
     const keys = Object.keys(payload);
     if (keys.length > 0) {
       const firstError = payload[keys[0]];
       if (Array.isArray(firstError)) {
-        return firstError[0]; // e.g. payload.location[0]
+        return firstError[0];
       } else if (typeof firstError === "string") {
         return firstError;
       }
     }
 
-    // Fallback if there is a flat message
     if (payload.message) return payload.message;
     if (payload.detail) return payload.detail;
 
     return "Failed to place order.";
+  };
+
+  /* ---------------- DISTANCE FORMATTER ---------------- */
+  // ⚡ FIX: This intercepts strings like "You are 1500 meters away..."
+  // and converts them to "... 1.50 kilometers away..."
+  const formatDistanceError = (errorString) => {
+    // Regex looks for numbers followed by " meter" or " meters"
+    const meterRegex = /([0-9.,]+)\s*meters?/i;
+    const match = errorString.match(meterRegex);
+
+    if (match) {
+      // Remove any commas and parse the number
+      const meters = parseFloat(match[1].replace(/,/g, ""));
+
+      if (!isNaN(meters) && meters >= 1000) {
+        const kilometers = (meters / 1000).toFixed(2);
+        // Replace the matched text with the km version
+        return errorString.replace(match[0], `${kilometers} km`);
+      }
+    }
+
+    // If no match or less than 1000m, return exactly as backend sent it
+    return errorString;
   };
 
   /* ---------------- PLACE ORDER ---------------- */
@@ -116,7 +136,6 @@ export default function Cart() {
     let userLat = null;
     let userLng = null;
 
-    // STEP 1: Just get the coordinates.
     if (navigator.geolocation) {
       try {
         const position = await new Promise((resolve, reject) => {
@@ -147,7 +166,6 @@ export default function Cart() {
       return;
     }
 
-    // STEP 2: Send everything to the backend
     setLocatingUser(false);
     setLoadingOrder(true);
 
@@ -166,14 +184,14 @@ export default function Cart() {
       }),
     );
 
-    // STEP 3: Handle the backend's decision
     if (createOrder.fulfilled.match(action)) {
       dispatch(clearCart());
       setShowSuccess(true);
     } else {
-      // ✅ Dynamically extract the DRF error message here
-      const errorMessage = extractErrorMessage(action.payload);
-      setOrderError(errorMessage);
+      const rawErrorMessage = extractErrorMessage(action.payload);
+      // ⚡ FIX: Pass the raw message through our formatter before setting state
+      const formattedErrorMessage = formatDistanceError(rawErrorMessage);
+      setOrderError(formattedErrorMessage);
     }
 
     setLoadingOrder(false);
@@ -186,7 +204,6 @@ export default function Cart() {
 
   const hasDiscount = totalSavings > 0 && parsedOriginalSubtotal > 0;
 
-  // Calculate tax and total
   const tax = parsedSubtotal * 0.18;
   const total = parsedSubtotal + tax;
 
@@ -264,7 +281,6 @@ export default function Cart() {
           </div>
         ) : (
           <>
-            {/* Items List */}
             <div className="space-y-3">
               {items.map((item) => {
                 const itemSavings = parseFloat(item.item_discount) || 0;
@@ -382,7 +398,6 @@ export default function Cart() {
               })}
             </div>
 
-            {/* Special Request */}
             <div className="mt-4">
               <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                 <ChefHat className="w-4 h-4 text-purple-500" />
@@ -397,9 +412,7 @@ export default function Cart() {
               />
             </div>
 
-            {/* Order Summary */}
             <div className="mt-5 space-y-4">
-              {/* Original Price & Discount Banner */}
               {hasDiscount && (
                 <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/10 dark:to-emerald-900/10 rounded-xl p-3 border border-green-100 dark:border-green-800/30">
                   <div className="flex justify-between items-center">
@@ -428,14 +441,12 @@ export default function Cart() {
                 </div>
               )}
 
-              {/* Compact Order Summary */}
               <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
                 <h3 className="text-base font-bold text-gray-900 dark:text-white mb-3">
                   Order Summary
                 </h3>
 
                 <div className="space-y-2.5">
-                  {/* Original Price */}
                   {hasDiscount && (
                     <div className="flex justify-between items-center text-sm">
                       <span className="text-gray-500 dark:text-gray-400">
@@ -447,7 +458,6 @@ export default function Cart() {
                     </div>
                   )}
 
-                  {/* Discount */}
                   {hasDiscount && (
                     <div className="flex justify-between items-center text-sm">
                       <div className="flex items-center gap-1.5">
@@ -466,7 +476,6 @@ export default function Cart() {
                     </div>
                   )}
 
-                  {/* Subtotal */}
                   <div className="flex justify-between items-center text-sm">
                     <span className="text-gray-600 dark:text-gray-400 font-medium">
                       Subtotal
@@ -476,7 +485,6 @@ export default function Cart() {
                     </span>
                   </div>
 
-                  {/* Tax */}
                   <div className="flex justify-between items-center text-sm">
                     <span className="text-gray-600 dark:text-gray-400">
                       Tax (18%)
@@ -486,7 +494,6 @@ export default function Cart() {
                     </span>
                   </div>
 
-                  {/* Total Amount */}
                   <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
                     <div className="flex justify-between items-center">
                       <div>
@@ -504,7 +511,6 @@ export default function Cart() {
                   </div>
                 </div>
 
-                {/* Savings Summary */}
                 {hasDiscount && (
                   <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
                     <div className="flex items-center justify-between text-sm">
@@ -527,7 +533,6 @@ export default function Cart() {
                 )}
               </div>
 
-              {/* Warnings / Errors */}
               {!table_public_id && (
                 <div className="p-3 bg-amber-50 dark:bg-amber-950/30 rounded-xl border border-amber-200 dark:border-amber-900/50 flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
@@ -537,7 +542,6 @@ export default function Cart() {
                 </div>
               )}
 
-              {/* ✅ UPDATED ERROR DISPLAY */}
               {orderError && (
                 <div className="p-3 bg-red-50 dark:bg-red-950/30 rounded-xl border border-red-200 dark:border-red-900/50 flex items-center gap-2 animate-pulse">
                   <MapPin className="w-4 h-4 text-red-600 dark:text-red-400 flex-shrink-0" />
@@ -547,7 +551,6 @@ export default function Cart() {
                 </div>
               )}
 
-              {/* Place Order Button */}
               <button
                 onClick={handlePlaceOrder}
                 disabled={
@@ -573,7 +576,6 @@ export default function Cart() {
                 )}
               </button>
 
-              {/* Continue Shopping */}
               <Link
                 to="/customer/menu"
                 className="block w-full text-center py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-xl text-sm font-semibold hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
@@ -585,7 +587,6 @@ export default function Cart() {
         )}
       </div>
 
-      {/* ---------- SUCCESS MODAL ---------- */}
       {showSuccess && (
         <OrderSuccessModal
           orderId={currentOrder?.order_id}
