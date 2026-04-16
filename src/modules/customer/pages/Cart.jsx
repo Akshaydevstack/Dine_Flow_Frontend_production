@@ -82,42 +82,56 @@ export default function Cart() {
     if (!payload) return "Failed to place order.";
     if (typeof payload === "string") return payload;
 
+    if (payload.detail) return payload.detail;
+    if (payload.message) return payload.message;
+    if (payload.error) return payload.error;
+    if (payload.non_field_errors) return payload.non_field_errors[0];
+
     const keys = Object.keys(payload);
     if (keys.length > 0) {
       const firstError = payload[keys[0]];
-      if (Array.isArray(firstError)) {
+      if (Array.isArray(firstError) && firstError.length > 0) {
         return firstError[0];
       } else if (typeof firstError === "string") {
         return firstError;
       }
     }
 
-    if (payload.message) return payload.message;
-    if (payload.detail) return payload.detail;
-
     return "Failed to place order.";
   };
 
   /* ---------------- DISTANCE FORMATTER ---------------- */
-  // ⚡ FIX: This intercepts strings like "You are 1500 meters away..."
-  // and converts them to "... 1.50 kilometers away..."
+  // ⚡ FIX: Updated to catch "(Distance: 2128m)" and convert to "(Distance: 2.13 km)"
   const formatDistanceError = (errorString) => {
-    // Regex looks for numbers followed by " meter" or " meters"
-    const meterRegex = /([0-9.,]+)\s*meters?/i;
+    if (typeof errorString !== "string") {
+      return "An error occurred while placing your order.";
+    }
+
+    // Look specifically for the exact format your backend sends
+    const meterRegex = /\(Distance:\s*([0-9.,]+)m\)/i;
     const match = errorString.match(meterRegex);
 
     if (match) {
-      // Remove any commas and parse the number
       const meters = parseFloat(match[1].replace(/,/g, ""));
 
       if (!isNaN(meters) && meters >= 1000) {
         const kilometers = (meters / 1000).toFixed(2);
-        // Replace the matched text with the km version
-        return errorString.replace(match[0], `${kilometers} km`);
+        // Replace "(Distance: 2128m)" with "(Distance: 2.13 km)"
+        return errorString.replace(match[0], `(Distance: ${kilometers} km)`);
       }
     }
 
-    // If no match or less than 1000m, return exactly as backend sent it
+    // Also keep a generic catch-all just in case the backend format changes slightly
+    const genericMeterRegex = /([0-9.,]+)\s*meters?/i;
+    const genericMatch = errorString.match(genericMeterRegex);
+    if (genericMatch) {
+      const meters = parseFloat(genericMatch[1].replace(/,/g, ""));
+      if (!isNaN(meters) && meters >= 1000) {
+        const kilometers = (meters / 1000).toFixed(2);
+        return errorString.replace(genericMatch[0], `${kilometers} km`);
+      }
+    }
+
     return errorString;
   };
 
@@ -189,7 +203,6 @@ export default function Cart() {
       setShowSuccess(true);
     } else {
       const rawErrorMessage = extractErrorMessage(action.payload);
-      // ⚡ FIX: Pass the raw message through our formatter before setting state
       const formattedErrorMessage = formatDistanceError(rawErrorMessage);
       setOrderError(formattedErrorMessage);
     }
@@ -197,7 +210,6 @@ export default function Cart() {
     setLoadingOrder(false);
   };
 
-  // Calculate values from API response
   const parsedSubtotal = parseFloat(subtotal) || 0;
   const parsedOriginalSubtotal = parseFloat(original_subtotal) || 0;
   const totalSavings = parseFloat(total_discount) || 0;
