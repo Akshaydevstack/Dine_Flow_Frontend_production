@@ -40,36 +40,38 @@ export default function Menu() {
   const [searchParams] = useSearchParams();
 
   // ── Redux selectors ──────────────────────────────────────────────────────────
-  const dishes           = useAppSelector(selectDishes);
-  const popularDishes    = useAppSelector(selectPopular);
-  const trendingDishes   = useAppSelector(selectTrending);
+  const dishes = useAppSelector(selectDishes);
+  const popularDishes = useAppSelector(selectPopular);
+  const trendingDishes = useAppSelector(selectTrending);
   const quickBitesDishes = useAppSelector(selectQuickBites);
-  const filters          = useAppSelector(selectFilters);
-  const pagination       = useAppSelector(selectPagination);
-  const loading          = useAppSelector(selectLoading);
-  const sectionsLoading  = useAppSelector(selectSectionsLoading);
-  const fetched          = useAppSelector(selectFetched);
-  const sectionsFetched  = useAppSelector(selectSectionsFetched);
-  const error            = useAppSelector(selectError);
-  const { categories, fetched: categoriesFetched } = useAppSelector((s) => s.categories);
+  const filters = useAppSelector(selectFilters);
+  const pagination = useAppSelector(selectPagination);
+  const loading = useAppSelector(selectLoading);
+  const sectionsLoading = useAppSelector(selectSectionsLoading);
+  const fetched = useAppSelector(selectFetched);
+  const sectionsFetched = useAppSelector(selectSectionsFetched);
+  const error = useAppSelector(selectError);
+  const { categories, fetched: categoriesFetched } = useAppSelector(
+    (s) => s.categories,
+  );
 
   // ── Local UI state ───────────────────────────────────────────────────────────
-  const [searchInput, setSearchInput]             = useState("");
-  const [isSearchOpen, setIsSearchOpen]           = useState(false);
-  const [showAllPopular, setShowAllPopular]       = useState(false);
-  const [showAllTrending, setShowAllTrending]     = useState(false);
+  const [searchInput, setSearchInput] = useState("");
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [showAllPopular, setShowAllPopular] = useState(false);
+  const [showAllTrending, setShowAllTrending] = useState(false);
   const [showAllQuickBites, setShowAllQuickBites] = useState(false);
   const [accumulatedDishes, setAccumulatedDishes] = useState(() => dishes);
-  const [isLoadingMore, setIsLoadingMore]         = useState(false);
-  const [showFilterPanel, setShowFilterPanel]     = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [showFilterPanel, setShowFilterPanel] = useState(false);
   const [activeFiltersCount, setActiveFiltersCount] = useState(0);
-  const [headerVisible, setHeaderVisible]         = useState(true);
+  const [headerVisible, setHeaderVisible] = useState(true);
 
   // ── Refs ─────────────────────────────────────────────────────────────────────
   const searchDebounceTimer = useRef(null);
-  const lastScrollY         = useRef(0);
-  const ticking             = useRef(false);
-  const initialFetchDone    = useRef(fetched);
+  const lastScrollY = useRef(0);
+  const ticking = useRef(false);
+  const initialFetchDone = useRef(fetched);
 
   // ── FLICKER FIX ──────────────────────────────────────────────────────────────
   // spacerRef points to the spacer div, headerRef to the fixed header.
@@ -116,8 +118,10 @@ export default function Menu() {
       requestAnimationFrame(() => {
         const y = window.scrollY;
         if (y < 10) setHeaderVisible(true);
-        else if (y > lastScrollY.current + 8) { setHeaderVisible(false); setIsSearchOpen(false); }
-        else if (y < lastScrollY.current - 8) setHeaderVisible(true);
+        else if (y > lastScrollY.current + 8) {
+          setHeaderVisible(false);
+          setIsSearchOpen(false);
+        } else if (y < lastScrollY.current - 8) setHeaderVisible(true);
         lastScrollY.current = y;
         ticking.current = false;
       });
@@ -151,7 +155,8 @@ export default function Menu() {
   useEffect(() => {
     if (searchDebounceTimer.current) clearTimeout(searchDebounceTimer.current);
     searchDebounceTimer.current = setTimeout(() => {
-      if (searchInput !== filters.searchQuery) dispatch(setSearchQuery(searchInput));
+      if (searchInput !== filters.searchQuery)
+        dispatch(setSearchQuery(searchInput));
     }, 300);
     return () => clearTimeout(searchDebounceTimer.current);
   }, [searchInput]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -162,16 +167,25 @@ export default function Menu() {
     dispatch(fetchMenuDishes(filters));
   }, [
     dispatch,
-    filters.searchQuery, filters.selectedCategory, filters.sortBy,
-    filters.currentPage, filters.isVeg, filters.isSpicy,
-    filters.priceRange?.min, filters.priceRange?.max,
+    filters.searchQuery,
+    filters.selectedCategory,
+    filters.sortBy,
+    filters.currentPage,
+    filters.isVeg,
+    filters.isSpicy,
+    filters.priceRange?.min,
+    filters.priceRange?.max,
   ]);
 
   useEffect(() => {
     if (loading || dishes.length === 0) return;
     setAccumulatedDishes((prev) => {
       if (filters.currentPage === 1) {
-        if (prev.length === dishes.length && prev[0]?.public_id === dishes[0]?.public_id) return prev;
+        if (
+          prev.length === dishes.length &&
+          prev[0]?.public_id === dishes[0]?.public_id
+        )
+          return prev;
         return dishes;
       }
       const ids = new Set(prev.map((d) => d.public_id));
@@ -184,7 +198,6 @@ export default function Menu() {
   useEffect(() => {
     let count = 0;
     if (filters.selectedCategory !== "all") count++;
-    if (filters.sortBy !== "priority") count++;
     if (filters.isVeg) count++;
     if (filters.isSpicy) count++;
     if (filters.priceRange?.min > 0 || filters.priceRange?.max < 5000) count++;
@@ -192,76 +205,131 @@ export default function Menu() {
   }, [filters]);
 
   useEffect(() => {
-    return () => { if (searchDebounceTimer.current) clearTimeout(searchDebounceTimer.current); };
+    return () => {
+      if (searchDebounceTimer.current)
+        clearTimeout(searchDebounceTimer.current);
+    };
   }, []);
 
   // ── Handlers ─────────────────────────────────────────────────────────────────
-  const handleCategorySelect = useCallback((catId) => {
-    dispatch(setSelectedCategory(catId));
-    dispatch(setCurrentPage(1));
-    setShowAllPopular(false); setShowAllTrending(false); setShowAllQuickBites(false);
+  const handleCategorySelect = useCallback(
+    (catId) => {
+      dispatch(setSelectedCategory(catId));
+      dispatch(setCurrentPage(1));
+      setShowAllPopular(false);
+      setShowAllTrending(false);
+      setShowAllQuickBites(false);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    },
+    [dispatch],
+  );
+
+  const handleShowAllPopular = useCallback(() => {
+    setShowAllPopular(true);
+    setShowAllTrending(false);
+    setShowAllQuickBites(false);
+    dispatch(setSelectedCategory("all"));
+    dispatch(setSortBy("popular"));
+    setAccumulatedDishes([]);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [dispatch]);
 
-  const handleShowAllPopular = useCallback(() => {
-    setShowAllPopular(true); setShowAllTrending(false); setShowAllQuickBites(false);
-    dispatch(setSelectedCategory("all")); dispatch(setSortBy("popular"));
-    setAccumulatedDishes([]); window.scrollTo({ top: 0, behavior: "smooth" });
-  }, [dispatch]);
-
   const handleShowAllTrending = useCallback(() => {
-    setShowAllTrending(true); setShowAllPopular(false); setShowAllQuickBites(false);
-    dispatch(setSelectedCategory("all")); dispatch(setSortBy("priority"));
-    setAccumulatedDishes([]); window.scrollTo({ top: 0, behavior: "smooth" });
+    setShowAllTrending(true);
+    setShowAllPopular(false);
+    setShowAllQuickBites(false);
+    dispatch(setSelectedCategory("all"));
+    dispatch(setSortBy("priority"));
+    setAccumulatedDishes([]);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }, [dispatch]);
 
   const handleShowAllQuickBites = useCallback(() => {
-    setShowAllQuickBites(true); setShowAllPopular(false); setShowAllTrending(false);
-    dispatch(setSelectedCategory("all")); setAccumulatedDishes([]);
+    setShowAllQuickBites(true);
+    setShowAllPopular(false);
+    setShowAllTrending(false);
+    dispatch(setSelectedCategory("all"));
+    setAccumulatedDishes([]);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [dispatch]);
 
   const handleClearSearch = useCallback(() => {
-    setSearchInput(""); dispatch(setSearchQuery("")); setIsSearchOpen(false);
+    setSearchInput("");
+    dispatch(setSearchQuery(""));
+    setIsSearchOpen(false);
   }, [dispatch]);
 
-  const handleSortChange = useCallback((sortId) => {
-    dispatch(setSortBy(sortId)); setAccumulatedDishes([]);
-    setShowAllPopular(false); setShowAllTrending(false); setShowAllQuickBites(false);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }, [dispatch]);
+  const handleSortChange = useCallback(
+    (sortId) => {
+      dispatch(setSortBy(sortId));
+      setAccumulatedDishes([]);
+      setShowAllPopular(false);
+      setShowAllTrending(false);
+      setShowAllQuickBites(false);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    },
+    [dispatch],
+  );
 
   const handleRetry = useCallback(() => {
-    dispatch(clearError()); dispatch(fetchMenuDishes(filters));
+    dispatch(clearError());
+    dispatch(fetchMenuDishes(filters));
   }, [dispatch, filters]);
 
   const handleClearFilters = useCallback(() => {
-    dispatch(setSelectedCategory("all")); dispatch(setSortBy("priority"));
-    dispatch(setSearchQuery("")); setAccumulatedDishes([]);
-    setShowFilterPanel(false); window.scrollTo({ top: 0, behavior: "smooth" });
+    dispatch(setSelectedCategory("all")); 
+    dispatch(setSortBy("")); 
+    dispatch(setSearchQuery("")); 
+    
+   
+    dispatch(setIsVeg(null));
+    dispatch(setIsSpicy(null));
+    dispatch(setPriceRange({ min: 0, max: 10000 }));
+
+    setAccumulatedDishes([]);
+    setShowFilterPanel(false); 
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }, [dispatch]);
 
-  const handleToggleVeg   = useCallback(() => { dispatch(setIsVeg(!filters.isVeg));     setAccumulatedDishes([]); }, [dispatch, filters.isVeg]);
-  const handleToggleSpicy = useCallback(() => { dispatch(setIsSpicy(!filters.isSpicy)); setAccumulatedDishes([]); }, [dispatch, filters.isSpicy]);
+  const handleToggleVeg = useCallback(() => {
+    dispatch(setIsVeg(!filters.isVeg));
+    setAccumulatedDishes([]);
+  }, [dispatch, filters.isVeg]);
+  const handleToggleSpicy = useCallback(() => {
+    dispatch(setIsSpicy(!filters.isSpicy));
+    setAccumulatedDishes([]);
+  }, [dispatch, filters.isSpicy]);
 
   const handleLoadMore = useCallback(() => {
     if (pagination.hasNext && !loading && !isLoadingMore) {
       setIsLoadingMore(true);
       dispatch(setCurrentPage(filters.currentPage + 1));
     }
-  }, [dispatch, pagination.hasNext, loading, isLoadingMore, filters.currentPage]);
+  }, [
+    dispatch,
+    pagination.hasNext,
+    loading,
+    isLoadingMore,
+    filters.currentPage,
+  ]);
 
   // ── Derived ───────────────────────────────────────────────────────────────────
   const shouldShowSections =
-    filters.selectedCategory === "all" && !searchInput &&
-    !showAllPopular && !showAllTrending && !showAllQuickBites;
+    filters.selectedCategory === "all" &&
+    !searchInput &&
+    !showAllPopular &&
+    !showAllTrending &&
+    !showAllQuickBites;
 
   // ── Render ────────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#0f0f13] pb-24">
-
       {error && (
-        <ErrorBanner error={error} onRetry={handleRetry} onDismiss={() => dispatch(clearError())} />
+        <ErrorBanner
+          error={error}
+          onRetry={handleRetry}
+          onDismiss={() => dispatch(clearError())}
+        />
       )}
 
       {/* Fixed header */}
@@ -280,7 +348,10 @@ export default function Menu() {
           onToggleFilter={() => setShowFilterPanel(!showFilterPanel)}
           activeFiltersCount={activeFiltersCount}
           isSearchOpen={isSearchOpen}
-          onCloseSearch={() => { setIsSearchOpen(false); handleClearSearch(); }}
+          onCloseSearch={() => {
+            setIsSearchOpen(false);
+            handleClearSearch();
+          }}
         />
         <CategoryFilter
           categories={categories}
