@@ -571,7 +571,7 @@ export default function AiWaiter({ onClose }) {
         const pos = await new Promise((resolve, reject) => {
           navigator.geolocation.getCurrentPosition(resolve, reject, {
             enableHighAccuracy: true,
-            timeout: 4000, // Only wait 4 seconds max so the chat doesn't lag
+            timeout: 30000, // Only wait 4 seconds max so the chat doesn't lag
             maximumAge: 0,
           });
         });
