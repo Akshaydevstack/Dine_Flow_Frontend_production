@@ -6,6 +6,7 @@ import axiosClient from "../../api/axiosClient";
 ========================================================= */
 
 const getSortingParam = (sortBy) => {
+  if (!sortBy) return null;
   const sortMap = {
     priority: "-priority",
     "price-low": "price",
@@ -14,7 +15,7 @@ const getSortingParam = (sortBy) => {
     newest: "-created_at",
   };
 
-  return sortMap[sortBy] || "-priority";
+  return sortMap[sortBy] || null;
 };
 
 const buildQueryParams = (filters) => {
@@ -52,8 +53,14 @@ const buildQueryParams = (filters) => {
     params.ordering = getSortingParam(filters.sortBy);
   }
 
+  const ordering = getSortingParam(filters.sortBy);
+  if (ordering) {
+    params.ordering = ordering;
+  }
+
   return params;
 };
+
 
 const generateCacheKey = (filters) =>
   JSON.stringify({
@@ -152,7 +159,7 @@ const initialFilters = {
   priceRange: { min: 0, max: 10000 },
   isVeg: null,
   isSpicy: null,
-  sortBy: "priority",
+  sortBy: "",
   currentPage: 1,
   itemsPerPage: 12,
 };
