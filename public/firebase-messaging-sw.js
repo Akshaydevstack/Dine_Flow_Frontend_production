@@ -22,7 +22,7 @@ if (firebaseConfig.apiKey) {
       payload.notification.title,
       {
         body: payload.notification.body,
-        icon: "/vite.svg", // Update this to your actual app icon
+        icon: "/favicon.png", // Update this to your actual app icon
       }
     );
   });
