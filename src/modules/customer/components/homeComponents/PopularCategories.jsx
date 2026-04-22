@@ -7,7 +7,6 @@ export default function PopularCategories() {
 
   const {
     categories,
-    fetched: catFetched,
     loading: catLoading,
   } = useAppSelector((s) => s.categories);
 
@@ -15,55 +14,51 @@ export default function PopularCategories() {
     navigate(`/customer/menu?category=${categoryId}`);
   };
 
-  // Create a dummy array of 4 items to map over for our skeleton loaders
   const skeletonArray = Array.from({ length: 4 });
 
   return (
-    <div className="mb-2">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-bold text-gray-900 dark:text-white">
+    <div className="mb-1"> {/* Reduced bottom margin */}
+      <div className="flex items-center justify-between mb-2"> {/* Reduced margin from mb-4 to mb-2 */}
+        <h2 className="text-md font-bold text-gray-900 dark:text-white"> {/* Slightly smaller font */}
           Popular Categories
         </h2>
         <Link
           to="/customer/menu"
-          className="text-purple-600 dark:text-purple-400 text-sm font-medium flex items-center gap-1"
+          className="text-purple-600 dark:text-purple-400 text-xs font-medium flex items-center gap-1"
         >
-          View all <ArrowRight className="w-4 h-4" />
+          View all <ArrowRight className="w-3 h-3" />
         </Link>
       </div>
 
-      <div className="flex overflow-x-auto gap-3 pb-4 no-scrollbar">
+      <div className="flex overflow-x-auto gap-3 pb-2 no-scrollbar"> {/* Reduced padding-bottom */}
         {catLoading ? (
-          /* SKELETON STATE: Renders while waiting for Redux data */
           skeletonArray.map((_, index) => (
             <div
               key={index}
-              className="flex flex-col items-center flex-shrink-0 min-w-[100px] animate-pulse"
+              className="flex flex-col items-center flex-shrink-0 min-w-[80px] animate-pulse"
             >
-              {/* Fake Image Box */}
-              <div className="w-20 h-20 rounded-2xl mb-2 flex-shrink-0 bg-gray-200 dark:bg-gray-800"></div>
-              {/* Fake Text Line */}
-              <div className="w-16 h-3 bg-gray-200 dark:bg-gray-800 rounded mt-1"></div>
+              {/* Reduced size to w-14 h-14 */}
+              <div className="w-14 h-14 rounded-xl mb-1 flex-shrink-0 bg-gray-200 dark:bg-gray-800"></div>
+              <div className="w-12 h-2.5 bg-gray-200 dark:bg-gray-800 rounded mt-1"></div>
             </div>
           ))
         ) : (
-          /* ACTUAL DATA STATE: Renders once data is fetched */
           categories.map((cat) => (
             <button
               key={cat.public_id}
               onClick={() => handleCategoryClick(cat.public_id)}
-              className="flex flex-col items-center flex-shrink-0 min-w-[100px]"
+              className="flex flex-col items-center flex-shrink-0 min-w-[80px]"
             >
-              <div className="w-20 h-20 rounded-2xl mb-2 flex-shrink-0 overflow-hidden">
+              {/* Reduced size to w-14 h-14 and rounded-xl */}
+              <div className="w-14 h-14 rounded-xl mb-1 flex-shrink-0 overflow-hidden bg-gray-50 dark:bg-gray-900">
                 <img
                   src={cat.image}
                   alt={cat.name}
-                  className="w-full h-full object-contain"
-                  style={{ display: "block" }}
+                  className="w-full h-full object-cover" 
                   loading="lazy"
                 />
               </div>
-              <span className="text-sm font-semibold text-gray-900 dark:text-white text-center leading-tight">
+              <span className="text-xs font-semibold text-gray-900 dark:text-white text-center leading-tight truncate w-full px-1">
                 {cat.name}
               </span>
             </button>
