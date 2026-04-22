@@ -17,9 +17,9 @@ export default function PopularCategories() {
   const skeletonArray = Array.from({ length: 4 });
 
   return (
-    <div className="mb-1"> {/* Reduced bottom margin */}
-      <div className="flex items-center justify-between mb-2"> {/* Reduced margin from mb-4 to mb-2 */}
-        <h2 className="text-md font-bold text-gray-900 dark:text-white"> {/* Slightly smaller font */}
+    <div className="mb-1">
+      <div className="flex items-center justify-between mb-2">
+        <h2 className="text-md font-bold text-gray-900 dark:text-white">
           Popular Categories
         </h2>
         <Link
@@ -30,15 +30,15 @@ export default function PopularCategories() {
         </Link>
       </div>
 
-      <div className="flex overflow-x-auto gap-3 pb-2 no-scrollbar"> {/* Reduced padding-bottom */}
+      <div className="flex overflow-x-auto gap-3 pb-2 no-scrollbar">
         {catLoading ? (
           skeletonArray.map((_, index) => (
             <div
               key={index}
               className="flex flex-col items-center flex-shrink-0 min-w-[80px] animate-pulse"
             >
-              {/* Reduced size to w-14 h-14 */}
-              <div className="w-14 h-14 rounded-xl mb-1 flex-shrink-0 bg-gray-200 dark:bg-gray-800"></div>
+              {/* Maintains height, but background-less look uses a subtle circle for the skeleton */}
+              <div className="w-14 h-14 rounded-full mb-1 flex-shrink-0 bg-gray-200 dark:bg-gray-800"></div>
               <div className="w-12 h-2.5 bg-gray-200 dark:bg-gray-800 rounded mt-1"></div>
             </div>
           ))
@@ -49,12 +49,12 @@ export default function PopularCategories() {
               onClick={() => handleCategoryClick(cat.public_id)}
               className="flex flex-col items-center flex-shrink-0 min-w-[80px]"
             >
-              {/* Reduced size to w-14 h-14 and rounded-xl */}
-              <div className="w-14 h-14 rounded-xl mb-1 flex-shrink-0 overflow-hidden bg-gray-50 dark:bg-gray-900">
+              {/* Height maintained at w-14 (56px). Background classes removed. */}
+              <div className="w-14 h-14 mb-1 flex-shrink-0 overflow-hidden">
                 <img
                   src={cat.image}
                   alt={cat.name}
-                  className="w-full h-full object-cover" 
+                  className="w-full h-full object-contain" 
                   loading="lazy"
                 />
               </div>
