@@ -1,6 +1,6 @@
 import { useAppSelector } from "../../../../store/hooks";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, LayoutGrid } from "lucide-react"; // Using LayoutGrid as a matching icon
 
 export default function PopularCategories() {
   const navigate = useNavigate();
@@ -17,29 +17,41 @@ export default function PopularCategories() {
   const skeletonArray = Array.from({ length: 4 });
 
   return (
-    <div className="mb-1">
-      <div className="flex items-center justify-between mb-2">
-        <h2 className="text-md font-bold text-gray-900 dark:text-white">
-          Popular Categories
-        </h2>
+    <div className="mb-3">
+      {/* Header - EXACT MATCH to Chef's Special */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <div className="p-1.5 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg">
+            <LayoutGrid className="w-4 h-4 text-white" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white">
+              Popular Categories
+            </h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Explore by food type
+            </p>
+          </div>
+        </div>
         <Link
           to="/customer/menu"
-          className="text-purple-600 dark:text-purple-400 text-xs font-medium flex items-center gap-1"
+          className="text-sm font-medium text-purple-600 dark:text-purple-400 flex items-center gap-1"
         >
-          View all <ArrowRight className="w-3 h-3" />
+          View all
+          <ArrowRight className="w-4 h-4" />
         </Link>
       </div>
 
-      <div className="flex overflow-x-auto gap-3 pb-2 no-scrollbar">
+      {/* Horizontal Scroll Area */}
+      <div className="flex overflow-x-auto gap-1 pb-2 no-scrollbar">
         {catLoading ? (
           skeletonArray.map((_, index) => (
             <div
               key={index}
               className="flex flex-col items-center flex-shrink-0 min-w-[80px] animate-pulse"
             >
-              {/* Maintains height, but background-less look uses a subtle circle for the skeleton */}
-              <div className="w-14 h-14 rounded-full mb-1 flex-shrink-0 bg-gray-200 dark:bg-gray-800"></div>
-              <div className="w-12 h-2.5 bg-gray-200 dark:bg-gray-800 rounded mt-1"></div>
+              <div className="w-14 h-14 rounded-full mb-2 bg-gray-200 dark:bg-gray-800"></div>
+              <div className="w-12 h-3 bg-gray-200 dark:bg-gray-800 rounded"></div>
             </div>
           ))
         ) : (
@@ -47,10 +59,10 @@ export default function PopularCategories() {
             <button
               key={cat.public_id}
               onClick={() => handleCategoryClick(cat.public_id)}
-              className="flex flex-col items-center flex-shrink-0 min-w-[80px]"
+              className="flex flex-col items-center flex-shrink-0 min-w-[80px] group"
             >
-              {/* Height maintained at w-14 (56px). Background classes removed. */}
-              <div className="w-14 h-14 mb-1 flex-shrink-0 overflow-hidden">
+              {/* Image without background */}
+              <div className="w-14 h-14 mb-2 flex-shrink-0 overflow-hidden transition-transform group-active:scale-90">
                 <img
                   src={cat.image}
                   alt={cat.name}
