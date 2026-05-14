@@ -90,7 +90,7 @@ export default function SuperUserLogin() {
         {/* Login Card */}
         <div className="w-full glass relative overflow-hidden rounded-3xl p-[1px] shadow-2xl animate-slide-up-delay-2">
           <div className="bg-white/70 dark:bg-gray-900/70 backdrop-blur-xl rounded-[23px] p-6 sm:p-8 relative">
-            {/* Header Text / System Divider */}
+            
             <div className="mb-8 text-center">
               <h2 className="text-2xl font-extrabold text-gray-900 dark:text-white mb-4">
                 Master Control
