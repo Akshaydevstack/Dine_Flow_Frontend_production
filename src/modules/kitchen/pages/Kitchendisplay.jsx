@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { useKitchenSocket } from "../hooks/useKitchenSocket";
 import { useNavigate } from "react-router-dom";
 import { logoutUser } from "../../../store/slices/authSlices/authSlice";
+import { useAppSelector } from "../../../store/hooks";
 import {
   fetchKitchenTickets,
   fetchKitchenTicketById,
@@ -1352,7 +1353,9 @@ const CancelledPanel = memo(function CancelledPanel({
 ═══════════════════════════════════════════════════════ */
 export default function KitchenDisplay() {
   const dispatch = useDispatch();
-  const token = localStorage.getItem("accessToken");
+  const token = useAppSelector(
+    (state) => state.auth.accessToken
+  );
 
   const navigate = useNavigate();
   const isLoggingOut = useSelector((state) => state.auth.loading);
