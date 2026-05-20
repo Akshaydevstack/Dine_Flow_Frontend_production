@@ -73,19 +73,10 @@ export default function DishGrid({
 
   // OPTIMIZATION: Use local state to hold "stale" data during loading
   const [displayedDishes, setDisplayedDishes] = useState(dishes);
-  const prevLoading = useRef(isLoading);
 
   useEffect(() => {
-    const wasLoading = prevLoading.current;
-    prevLoading.current = isLoading;
-
-    if (dishes.length > 0) {
-      // If we have data, update immediately (or when fetch finishes with data)
+    if (!isLoading) {
       setDisplayedDishes(dishes);
-    } else if (wasLoading && !isLoading && dishes.length === 0) {
-      // ONLY show the empty state if we just FINISHED a loading cycle with 0 results.
-      // This prevents the split-second flash when switching filters.
-      setDisplayedDishes([]);
     }
   }, [dishes, isLoading]);
 
@@ -121,8 +112,12 @@ export default function DishGrid({
 
   // State calculations
   const isInitialLoad = isLoading && displayedDishes.length === 0;
-  const isRefreshing = isLoading && displayedDishes.length > 0;
-  const isGenuinelyEmpty = !isLoading && dishes.length === 0;
+
+  const isRefreshing =
+    isLoading && displayedDishes.length > 0 && dishes.length === 0;
+
+  const isGenuinelyEmpty =
+    !isLoading && dishes.length === 0 && displayedDishes.length === 0;
 
   return (
     <div className="px-3 py-3">
@@ -186,7 +181,7 @@ export default function DishGrid({
         </div>
       ) : (
         <div
-          className={`transition-opacity duration-200 ${isRefreshing ? "opacity-50 pointer-events-none" : "opacity-100"}`}
+          className={`transition-opacity duration-200 ${isRefreshing ? "opacity-70 pointer-events-none" : "opacity-100"}`}
         >
           <div
             className={
