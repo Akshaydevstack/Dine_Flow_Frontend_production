@@ -4,7 +4,7 @@ import { useWaiterTableSessionSocket } from "../../hooks/useWaiterSocket";
 import { updateTableSession } from "../../../../store/slices/waiterSlice/waiterTablesSlice";
 import { useDispatch } from "react-redux";
 import { useCallback } from "react";
-import { useAppSelector } from "../../../store/hooks";
+import { useAppSelector } from "../../../../store/hooks";
 
 export default function CustomerLayout() {
   const dispatch = useDispatch();
