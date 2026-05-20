@@ -122,7 +122,7 @@ export default function DishGrid({
   // State calculations
   const isInitialLoad = isLoading && displayedDishes.length === 0;
   const isRefreshing = isLoading && displayedDishes.length > 0;
-  const isGenuinelyEmpty = !isLoading && displayedDishes.length === 0;
+  const isGenuinelyEmpty = !isLoading && dishes.length === 0;
 
   return (
     <div className="px-3 py-3">
