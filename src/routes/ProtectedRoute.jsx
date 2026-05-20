@@ -1,5 +1,6 @@
 import { Navigate, Outlet } from "react-router-dom";
 import { useAppSelector } from "../store/hooks";
+import DineFlowLoader from "../components/ui/DineFlowLoader";
 
 export default function ProtectedRoute({ allowedRole }) {
   const { isAuthenticated, user, sessionChecked } = useAppSelector(
@@ -8,7 +9,7 @@ export default function ProtectedRoute({ allowedRole }) {
 
   // ⏳ Wait for the refreshSession call to finish before making routing decisions
   if (!sessionChecked) {
-    return <div>Loading...</div>; // replace with your spinner component
+    return <DineFlowLoader/>; // replace with your spinner component
   }
 
   if (!isAuthenticated) return <Navigate to="/" replace />;
