@@ -1,35 +1,28 @@
+// axiosClient.js — FULL REWRITE
 import axios from "axios";
+import store from "../store"; // adjust path to your store
+import { setAccessToken, clearAuth } from "../store/slices/authSlices/authSlice";
 
 let isRefreshing = false;
 let failedQueue = [];
 let logoutHandler = null;
 
-/* ===============================
-   Register Logout Handler
-================================ */
 export const setLogoutHandler = (handler) => {
   logoutHandler = handler;
 };
 
-/* ===============================
-   Process queued requests
-================================ */
 const processQueue = (error, token = null) => {
   failedQueue.forEach((prom) => {
     if (error) prom.reject(error);
     else prom.resolve(token);
   });
-
   failedQueue = [];
 };
 
-/* ===============================
-   Axios Instances
-================================ */
 const axiosClient = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
   timeout: 30000,
-  withCredentials: true,
+  withCredentials: true, // ✅ sends HttpOnly cookie automatically
 });
 
 const axiosRefresh = axios.create({
@@ -40,10 +33,11 @@ const axiosRefresh = axios.create({
 
 /* ===============================
    REQUEST INTERCEPTOR
+   Read token from Redux, NOT localStorage
 ================================ */
 axiosClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("accessToken");
+    const token = store.getState().auth.accessToken; // ✅ from Redux RAM
 
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -70,9 +64,6 @@ axiosClient.interceptors.response.use(
     ) {
       originalRequest._retry = true;
 
-      /* ===============================
-         If refresh already running
-      ================================ */
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
@@ -87,45 +78,31 @@ axiosClient.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        /* ===============================
-           Call refresh token API
-        ================================ */
         const res = await axiosRefresh.post(
           "/auth/refreshtoken-user/",
           {},
-          { withCredentials: true }
+          { withCredentials: true } // ✅ sends HttpOnly cookie
         );
 
         const newToken = res.data.access_token;
 
-        /* Save new access token */
-        localStorage.setItem("accessToken", newToken);
+        // ✅ Save to Redux only — NOT localStorage
+        store.dispatch(setAccessToken(newToken));
 
-        /* Resolve queued requests */
         processQueue(null, newToken);
 
-        /* Retry original request */
         originalRequest.headers.Authorization = "Bearer " + newToken;
-
         return axiosClient(originalRequest);
 
       } catch (refreshError) {
-
         processQueue(refreshError, null);
 
-        /* Clear storage */
-        localStorage.removeItem("accessToken");
-        localStorage.removeItem("user");
-        localStorage.removeItem("session_details");
+        // ✅ Clear Redux only — NOT localStorage
+        store.dispatch(clearAuth());
 
-        /* Logout via handler */
-        if (logoutHandler) {
-          logoutHandler();
-        }
+        if (logoutHandler) logoutHandler();
 
-        /* Redirect to login */
         window.location.href = "/";
-
         return Promise.reject(refreshError);
 
       } finally {
