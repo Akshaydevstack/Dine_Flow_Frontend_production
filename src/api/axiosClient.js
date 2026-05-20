@@ -1,6 +1,6 @@
 // axiosClient.js — FULL REWRITE
 import axios from "axios";
-import store from "../store"; // adjust path to your store
+import store from "../store"; // adjust path to your 
 import { setAccessToken, clearAuth } from "../store/slices/authSlices/authSlice";
 
 let isRefreshing = false;
