@@ -71,22 +71,17 @@ export default function DishGrid({
 }) {
   const [viewMode, setViewMode] = useState("grid");
 
-  // OPTIMIZATION: Use local state to hold "stale" data during loading
+  // Keep stale dishes visible while loading to prevent flash of empty state
   const [displayedDishes, setDisplayedDishes] = useState(dishes);
-  const prevLoading = useRef(isLoading);
 
   useEffect(() => {
-    const wasLoading = prevLoading.current;
-    prevLoading.current = isLoading;
-
-    if (dishes.length > 0) {
-      // If we have data, update immediately (or when fetch finishes with data)
+    if (!isLoading) {
+      // Only update (including clearing) once loading is fully done
       setDisplayedDishes(dishes);
-    } else if (wasLoading && !isLoading && dishes.length === 0) {
-      // ONLY show the empty state if we just FINISHED a loading cycle with 0 results.
-      // This prevents the split-second flash when switching filters.
-      setDisplayedDishes([]);
     }
+    // While isLoading === true, we intentionally do nothing:
+    // displayedDishes keeps the previous category's data visible,
+    // which is shown at reduced opacity via isRefreshing below.
   }, [dishes, isLoading]);
 
   // Infinite scroll
@@ -119,10 +114,15 @@ export default function DishGrid({
     return "All Dishes";
   };
 
-  // State calculations
+  // True initial load: loading with nothing to show yet
   const isInitialLoad = isLoading && displayedDishes.length === 0;
+
+  // Category/filter switch: loading but we have stale data to show as a placeholder
   const isRefreshing = isLoading && displayedDishes.length > 0;
-  const isGenuinelyEmpty = !isLoading && displayedDishes.length === 0;
+
+  // Only show empty state once loading has fully settled with no results
+  const isGenuinelyEmpty =
+    !isLoading && dishes.length === 0 && displayedDishes.length === 0;
 
   return (
     <div className="px-3 py-3">
