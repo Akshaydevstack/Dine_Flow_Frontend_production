@@ -71,13 +71,17 @@ export default function DishGrid({
 }) {
   const [viewMode, setViewMode] = useState("grid");
 
-  // OPTIMIZATION: Use local state to hold "stale" data during loading
+  // Keep stale dishes visible while loading to prevent flash of empty state
   const [displayedDishes, setDisplayedDishes] = useState(dishes);
 
   useEffect(() => {
     if (!isLoading) {
+      // Only update (including clearing) once loading is fully done
       setDisplayedDishes(dishes);
     }
+    // While isLoading === true, we intentionally do nothing:
+    // displayedDishes keeps the previous category's data visible,
+    // which is shown at reduced opacity via isRefreshing below.
   }, [dishes, isLoading]);
 
   // Infinite scroll
@@ -110,12 +114,13 @@ export default function DishGrid({
     return "All Dishes";
   };
 
-  // State calculations
+  // True initial load: loading with nothing to show yet
   const isInitialLoad = isLoading && displayedDishes.length === 0;
 
-  const isRefreshing =
-    isLoading && displayedDishes.length > 0 && dishes.length === 0;
+  // Category/filter switch: loading but we have stale data to show as a placeholder
+  const isRefreshing = isLoading && displayedDishes.length > 0;
 
+  // Only show empty state once loading has fully settled with no results
   const isGenuinelyEmpty =
     !isLoading && dishes.length === 0 && displayedDishes.length === 0;
 
@@ -181,7 +186,7 @@ export default function DishGrid({
         </div>
       ) : (
         <div
-          className={`transition-opacity duration-200 ${isRefreshing ? "opacity-70 pointer-events-none" : "opacity-100"}`}
+          className={`transition-opacity duration-200 ${isRefreshing ? "opacity-50 pointer-events-none" : "opacity-100"}`}
         >
           <div
             className={
