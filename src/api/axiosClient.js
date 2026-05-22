@@ -25,7 +25,7 @@ const axiosClient = axios.create({
   withCredentials: true, // ✅ sends HttpOnly cookie automatically
 });
 
-const axiosRefresh = axios.create({
+export const axiosRefresh = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
   timeout: 10000,
   withCredentials: true,

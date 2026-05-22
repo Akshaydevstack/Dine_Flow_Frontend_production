@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import axiosClient from "../../../api/axiosClient";
+// Make sure you are exporting axiosRefresh from axiosClient.js!
+import axiosClient, { axiosRefresh } from "../../../api/axiosClient";
 import { jwtDecode } from "jwt-decode";
 
 /* =========================
@@ -37,18 +38,38 @@ const initialState = {
    Thunks
 ========================= */
 
+// Promise lock to prevent duplicate refresh requests on fast reload / React Strict Mode
+let refreshPromise = null;
+
 // Called on page load — restores session from HttpOnly cookie
 export const refreshSession = createAsyncThunk(
   "auth/refreshSession",
   async (_, thunkApi) => {
-    try {
-      const res = await axiosClient.post("/auth/refreshtoken-user/");
-      const accessToken = res.data.access_token;
-      const user = mapUserFromToken(accessToken);
-      return { accessToken, user };
-    } catch {
-      return thunkApi.rejectWithValue(null);
-    }
+    // If a request is already in flight, return the existing promise
+    if (refreshPromise) return refreshPromise;
+
+    // Use axiosRefresh here to bypass the standard interceptors and avoid infinite loops
+    refreshPromise = axiosRefresh.post("/auth/refreshtoken-user/")
+      .then((res) => {
+        refreshPromise = null;
+        const accessToken = res.data.access_token;
+        const user = mapUserFromToken(accessToken);
+        return { accessToken, user };
+      })
+      .catch((error) => {
+        refreshPromise = null;
+        
+        // Check if the server explicitly rejected the token
+        const status = error.response?.status;
+        if (status === 401 || status === 403 || status === 400) {
+          return thunkApi.rejectWithValue("unauthorized");
+        }
+        
+        // If it's a canceled request from fast-refreshing, label it as a network error
+        return thunkApi.rejectWithValue("network_error");
+      });
+
+    return refreshPromise;
   }
 );
 
@@ -127,7 +148,6 @@ export const logoutUser = createAsyncThunk(
 
 /* =========================
    Helpers for fulfilled cases
-   (avoids repeating the same 4 lines)
 ========================= */
 
 const setAuthState = (state, action) => {
@@ -138,7 +158,7 @@ const setAuthState = (state, action) => {
   state.sessionChecked = true;
   state.error = null;
   // Only a flag — no sensitive data in sessionStorage
-  sessionStorage.setItem("hasSession", "1");
+  localStorage.setItem("hasSession", "1");
 };
 
 /* =========================
@@ -160,7 +180,7 @@ const authSlice = createSlice({
       state.isAuthenticated = false;
       state.sessionChecked = true;
       state.error = null;
-      sessionStorage.removeItem("hasSession");
+      localStorage.removeItem("hasSession");
     },
   },
 
@@ -174,13 +194,18 @@ const authSlice = createSlice({
       .addCase(refreshSession.fulfilled, (state, action) => {
         setAuthState(state, action);
       })
-      .addCase(refreshSession.rejected, (state) => {
-        // Silently fail — user is just not logged in
+      .addCase(refreshSession.rejected, (state, action) => {
+        // Clear Redux state
         state.user = null;
         state.accessToken = null;
         state.isAuthenticated = false;
         state.sessionChecked = true;
-        sessionStorage.removeItem("hasSession");
+        
+        // ONLY wipe localStorage if the backend explicitly said the token is invalid.
+        // If it was a network error from fast-refreshing, hasSession stays intact for the next load.
+        if (action.payload === "unauthorized") {
+          localStorage.removeItem("hasSession");
+        }
       })
 
       // ---------- CUSTOMER LOGIN ----------
@@ -243,7 +268,7 @@ const authSlice = createSlice({
         state.loading = false;
         state.error = null;
         state.sessionChecked = true;
-        sessionStorage.removeItem("hasSession");
+        localStorage.removeItem("hasSession");
       })
       .addCase(logoutUser.rejected, (state, action) => {
         // Even if logout API fails, clear local state anyway
@@ -253,7 +278,7 @@ const authSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
         state.sessionChecked = true;
-        sessionStorage.removeItem("hasSession");
+        localStorage.removeItem("hasSession");
       });
   },
 });
