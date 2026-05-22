@@ -9,8 +9,23 @@ export default function MostPopular({ trending = [], isLoading = false }) {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
 
-  const handleAddToCart = (dish, e) => { /* ... */ };
-  const handleDishClick = (dishId) => { /* ... */ };
+  const handleAddToCart = (dish, e) => {
+    e.stopPropagation();
+    dispatch(
+      addToCart({
+        dish_id: dish.public_id,
+        name: dish.name,
+        price: dish.price,
+        image: dish.images?.[0],
+        quantity: 1,
+      })
+    );
+  };
+
+  const handleDishClick = (dishId) => {
+    navigate(`/customer/dish/${dishId}`);
+  };
+
 
   // SKELETON STATE
   if (isLoading) {
