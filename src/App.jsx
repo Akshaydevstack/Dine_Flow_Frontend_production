@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import AppRoutes from "./routes/AppRoutes";
 import { setLogoutHandler } from "./api/axiosClient";
 import store from "./store";
@@ -7,14 +7,8 @@ import DineFlowLoader from "./components/ui/DineFlowLoader";
 
 export default function App() {
   const [appReady, setAppReady] = useState(false);
-  
-  const isInitializing = useRef(false);
 
   useEffect(() => {
-    if (isInitializing.current) return;
-    isInitializing.current = true;
-
-    // Register the logout handler for axiosClient to call on refresh failure
     setLogoutHandler(() => {
       store.dispatch(logoutUser());
     });
@@ -22,20 +16,22 @@ export default function App() {
     const hadSession = localStorage.getItem("hasSession");
 
     if (hadSession) {
-      // 1. Set a 500ms delay. If the user fast-refreshes, the component unmounts
-      // and the timer is cleared BEFORE the API call ever hits the backend.
+      // Set a 300ms delay. 
+      // If the user fast-refreshes, the component unmounts BEFORE the 300ms is up.
       const timer = setTimeout(() => {
         store.dispatch(refreshSession()).finally(() => {
           setAppReady(true);
         });
-      }, 500); // 500ms buffer
+      }, 250); // 300ms is usually fast enough to feel instant, but slow enough to catch a double-reload
 
-      // 2. Clear the timeout if the component unmounts (page reload)
+      // THIS IS THE MAGIC: If the component unmounts (because they refreshed again), 
+      // clear the timer so the request never fires.
+      return () => clearTimeout(timer);
+      
     } else {
-      // No previous session
       setAppReady(true);
     }
-  }, []); // Empty dependency array
+  }, []);
 
   if (!appReady) {
     return <DineFlowLoader />;
