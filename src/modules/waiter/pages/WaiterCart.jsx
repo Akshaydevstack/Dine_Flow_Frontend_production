@@ -125,6 +125,8 @@ const CartItemCard = ({
   );
 };
 
+
+
 /* =========================================================
    MAIN PAGE
 ========================================================= */
@@ -150,8 +152,6 @@ export default function WaiterCart() {
   const [orderSuccess, setOrderSuccess] = useState(false);
   const [note, setNote] = useState("");
   const [localError, setLocalError] = useState("");
-
-  // Get table info from localStorage
 
   // Get table_public_id (this might be different from tableId)
   const table_public_id = localStorage.getItem("table_id");

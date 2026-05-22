@@ -2,6 +2,10 @@ import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axiosClient from "../../../api/axiosClient";
 import { jwtDecode } from "jwt-decode";
 
+/* =========================
+   Helpers
+========================= */
+
 const mapUserFromToken = (token) => {
   const decoded = jwtDecode(token);
   return {
@@ -16,21 +20,24 @@ const mapUserFromToken = (token) => {
   };
 };
 
-// ✅ No more localStorage reads
+/* =========================
+   Initial State
+========================= */
+
 const initialState = {
   user: null,
   accessToken: null,
   isAuthenticated: false,
   loading: false,
   error: null,
-  sessionChecked: false, // ✅ new — prevents redirect before refresh check
+  sessionChecked: false,
 };
 
 /* =========================
    Thunks
 ========================= */
 
-// ✅ NEW — called on every page load to restore session from HttpOnly cookie
+// Called on page load — restores session from HttpOnly cookie
 export const refreshSession = createAsyncThunk(
   "auth/refreshSession",
   async (_, thunkApi) => {
@@ -40,11 +47,12 @@ export const refreshSession = createAsyncThunk(
       const user = mapUserFromToken(accessToken);
       return { accessToken, user };
     } catch {
-      return thunkApi.rejectWithValue(null); // silently fail = not logged in
+      return thunkApi.rejectWithValue(null);
     }
   }
 );
 
+// Customer login (Firebase / OTP)
 export const loginUser = createAsyncThunk(
   "auth/loginUser",
   async (credentials, thunkApi) => {
@@ -59,6 +67,7 @@ export const loginUser = createAsyncThunk(
   }
 );
 
+// Staff login (Username + Password)
 export const loginStaff = createAsyncThunk(
   "auth/loginStaff",
   async (credentials, thunkApi) => {
@@ -73,6 +82,7 @@ export const loginStaff = createAsyncThunk(
   }
 );
 
+// Super admin login
 export const loginSuperAdmin = createAsyncThunk(
   "auth/loginSuperAdmin",
   async (credentials, thunkApi) => {
@@ -87,6 +97,7 @@ export const loginSuperAdmin = createAsyncThunk(
   }
 );
 
+// Customer registration
 export const registerUser = createAsyncThunk(
   "auth/registerUser",
   async (credentials, thunkApi) => {
@@ -101,6 +112,7 @@ export const registerUser = createAsyncThunk(
   }
 );
 
+// Logout
 export const logoutUser = createAsyncThunk(
   "auth/logoutUser",
   async (_, thunkApi) => {
@@ -114,6 +126,22 @@ export const logoutUser = createAsyncThunk(
 );
 
 /* =========================
+   Helpers for fulfilled cases
+   (avoids repeating the same 4 lines)
+========================= */
+
+const setAuthState = (state, action) => {
+  state.loading = false;
+  state.user = action.payload.user;
+  state.accessToken = action.payload.accessToken;
+  state.isAuthenticated = true;
+  state.sessionChecked = true;
+  state.error = null;
+  // Only a flag — no sensitive data in sessionStorage
+  sessionStorage.setItem("hasSession", "1");
+};
+
+/* =========================
    Slice
 ========================= */
 
@@ -121,36 +149,38 @@ const authSlice = createSlice({
   name: "auth",
   initialState,
   reducers: {
-    // ✅ Used by axiosClient interceptor to update token after silent refresh
+    // Used by axiosClient interceptor to silently update token after auto-refresh
     setAccessToken(state, action) {
       state.accessToken = action.payload;
     },
-    // ✅ Used by axiosClient interceptor on refresh failure
+    // Used by axiosClient interceptor when refresh fails (force logout)
     clearAuth(state) {
       state.user = null;
       state.accessToken = null;
       state.isAuthenticated = false;
       state.sessionChecked = true;
+      state.error = null;
+      sessionStorage.removeItem("hasSession");
     },
   },
 
   extraReducers: (builder) => {
     builder
 
-      // ---------- REFRESH SESSION (page reload) ----------
+      // ---------- REFRESH SESSION ----------
       .addCase(refreshSession.pending, (state) => {
         state.sessionChecked = false;
       })
       .addCase(refreshSession.fulfilled, (state, action) => {
-        state.user = action.payload.user;
-        state.accessToken = action.payload.accessToken;
-        state.isAuthenticated = true;
-        state.sessionChecked = true;
-        // ✅ Nothing written to localStorage
+        setAuthState(state, action);
       })
       .addCase(refreshSession.rejected, (state) => {
+        // Silently fail — user is just not logged in
+        state.user = null;
+        state.accessToken = null;
         state.isAuthenticated = false;
-        state.sessionChecked = true; // done checking, just not logged in
+        state.sessionChecked = true;
+        sessionStorage.removeItem("hasSession");
       })
 
       // ---------- CUSTOMER LOGIN ----------
@@ -159,12 +189,7 @@ const authSlice = createSlice({
         state.error = null;
       })
       .addCase(loginUser.fulfilled, (state, action) => {
-        state.loading = false;
-        state.user = action.payload.user;
-        state.accessToken = action.payload.accessToken;
-        state.isAuthenticated = true;
-        state.sessionChecked = true;
-        // ✅ No localStorage
+        setAuthState(state, action);
       })
       .addCase(loginUser.rejected, (state, action) => {
         state.loading = false;
@@ -177,12 +202,7 @@ const authSlice = createSlice({
         state.error = null;
       })
       .addCase(loginStaff.fulfilled, (state, action) => {
-        state.loading = false;
-        state.user = action.payload.user;
-        state.accessToken = action.payload.accessToken;
-        state.isAuthenticated = true;
-        state.sessionChecked = true;
-        // ✅ No localStorage
+        setAuthState(state, action);
       })
       .addCase(loginStaff.rejected, (state, action) => {
         state.loading = false;
@@ -195,11 +215,7 @@ const authSlice = createSlice({
         state.error = null;
       })
       .addCase(loginSuperAdmin.fulfilled, (state, action) => {
-        state.loading = false;
-        state.user = action.payload.user;
-        state.accessToken = action.payload.accessToken;
-        state.isAuthenticated = true;
-        state.sessionChecked = true;
+        setAuthState(state, action);
       })
       .addCase(loginSuperAdmin.rejected, (state, action) => {
         state.loading = false;
@@ -212,12 +228,7 @@ const authSlice = createSlice({
         state.error = null;
       })
       .addCase(registerUser.fulfilled, (state, action) => {
-        state.loading = false;
-        state.user = action.payload.user;
-        state.accessToken = action.payload.accessToken;
-        state.isAuthenticated = true;
-        state.sessionChecked = true;
-        // ✅ No localStorage
+        setAuthState(state, action);
       })
       .addCase(registerUser.rejected, (state, action) => {
         state.loading = false;
@@ -232,11 +243,17 @@ const authSlice = createSlice({
         state.loading = false;
         state.error = null;
         state.sessionChecked = true;
-        // ✅ No localStorage to clear
+        sessionStorage.removeItem("hasSession");
       })
       .addCase(logoutUser.rejected, (state, action) => {
+        // Even if logout API fails, clear local state anyway
+        state.user = null;
+        state.accessToken = null;
+        state.isAuthenticated = false;
         state.loading = false;
         state.error = action.payload;
+        state.sessionChecked = true;
+        sessionStorage.removeItem("hasSession");
       });
   },
 });
