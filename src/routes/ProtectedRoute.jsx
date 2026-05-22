@@ -2,7 +2,6 @@ import { Navigate, Outlet } from "react-router-dom";
 import { useAppSelector } from "../store/hooks";
 import DineFlowLoader from "../components/ui/DineFlowLoader";
 
-
 export default function ProtectedRoute({ allowedRole }) {
   const { isAuthenticated, user, sessionChecked } = useAppSelector(
     (state) => state.auth
