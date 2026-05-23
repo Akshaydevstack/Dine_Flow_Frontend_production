@@ -94,7 +94,7 @@ export default function AdminSidebar({ isExpanded }) {
       const resultAction = await dispatch(logoutUser());
       
       if (logoutUser.fulfilled.match(resultAction)) {
-        navigate("/login", { replace: true });
+        navigate("/", { replace: true });
       } else {
         console.error("Logout failed:", resultAction.payload);
         alert("Logout failed. Please try again.");
