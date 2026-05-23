@@ -22,7 +22,7 @@ export default function App() {
         store.dispatch(refreshSession()).finally(() => {
           setAppReady(true);
         });
-      }, 250); // 300ms is usually fast enough to feel instant, but slow enough to catch a double-reload
+      }, 350); // 300ms is usually fast enough to feel instant, but slow enough to catch a double-reload
 
       // THIS IS THE MAGIC: If the component unmounts (because they refreshed again), 
       // clear the timer so the request never fires.
