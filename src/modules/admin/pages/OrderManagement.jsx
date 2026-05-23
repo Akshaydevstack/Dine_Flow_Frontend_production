@@ -135,7 +135,7 @@ const timeAgo = (iso) => {
   if (!iso) return "";
   try {
     const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-    if (diff < 60)   return `${diff}s ago`;
+    if (diff < 60) return `${diff}s ago`;
     if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
     if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
     return `${Math.floor(diff / 86400)}d ago`;
@@ -151,12 +151,12 @@ const timeAgo = (iso) => {
 const buildTimeline = (order) => {
   // Map status → timestamp field name (adjust to your backend's actual field names)
   const entries = [
-    { status: "CREATED",   label: "Order Placed",    ts: order.created_at },
-    { status: "ACCEPTED",  label: "Accepted",         ts: order.accepted_at },
-    { status: "PREPARING", label: "Cooking Started",  ts: order.preparing_at },
-    { status: "READY",     label: "Ready for Pickup", ts: order.ready_at },
-    { status: "COMPLETED", label: "Completed",        ts: order.completed_at },
-    { status: "CANCELLED", label: "Cancelled",        ts: order.cancelled_at },
+    { status: "CREATED", label: "Order Placed", ts: order.created_at },
+    { status: "ACCEPTED", label: "Accepted", ts: order.accepted_at },
+    { status: "PREPARING", label: "Cooking Started", ts: order.preparing_at },
+    { status: "READY", label: "Ready for Pickup", ts: order.ready_at },
+    { status: "COMPLETED", label: "Completed", ts: order.completed_at },
+    { status: "CANCELLED", label: "Cancelled", ts: order.cancelled_at },
   ];
 
   // Return only entries that have a timestamp OR are the current status
@@ -310,10 +310,10 @@ const OrderTimeline = ({ order }) => {
                       isCurrent && isCancelled
                         ? "bg-rose-500"
                         : isCurrent
-                        ? "bg-violet-600 ring-2 ring-violet-300 dark:ring-violet-800"
-                        : entry.ts
-                        ? "bg-slate-300 dark:bg-slate-600"
-                        : "bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+                          ? "bg-violet-600 ring-2 ring-violet-300 dark:ring-violet-800"
+                          : entry.ts
+                            ? "bg-slate-300 dark:bg-slate-600"
+                            : "bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
                     }`}
                 />
                 {!isLast && (
@@ -330,10 +330,10 @@ const OrderTimeline = ({ order }) => {
                         isCurrent && isCancelled
                           ? "text-rose-500"
                           : isCurrent
-                          ? "text-violet-600 dark:text-violet-400"
-                          : entry.ts
-                          ? "text-slate-600 dark:text-slate-400"
-                          : "text-slate-300 dark:text-slate-700"
+                            ? "text-violet-600 dark:text-violet-400"
+                            : entry.ts
+                              ? "text-slate-600 dark:text-slate-400"
+                              : "text-slate-300 dark:text-slate-700"
                       }`}
                   >
                     {entry.label}
@@ -447,9 +447,6 @@ const OrderCard = React.forwardRef(({ order, mutating }, ref) => {
             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">
               {order.order_id}
             </p>
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">
-              {order.user_id}
-            </p>
             <div className="flex items-center gap-1 text-xs text-slate-500 font-bold">
               <MapPin size={10} className="text-slate-400" />
               {order.table?.zone_name ?? "—"}
@@ -480,12 +477,23 @@ const OrderCard = React.forwardRef(({ order, mutating }, ref) => {
 
       {/* ── Created At timestamp (Locked) ── */}
       {order.created_at && (
-        <div className="px-5 py-2.5 bg-slate-50/60 dark:bg-slate-800/30 border-b border-slate-100 dark:border-slate-800 flex items-center gap-1.5 flex-shrink-0">
-          <Calendar size={10} className="text-slate-400 flex-shrink-0" />
+        <div className="px-5 py-2.5 bg-slate-50/60 dark:bg-slate-800/30 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between flex-shrink-0 w-full">
+          {/* Left side: Icon and Date */}
+          <div className="flex items-center gap-1.5">
+            <Calendar size={10} className="text-slate-400 flex-shrink-0" />
+            <span className="text-[10px] text-slate-500 dark:text-slate-500 font-semibold">
+              Placed:{" "}
+              <span className="font-black text-slate-600 dark:text-slate-400">
+                {formatDateTime(order.created_at)}
+              </span>
+            </span>
+          </div>
+
+          {/* Right side: User ID */}
           <span className="text-[10px] text-slate-500 dark:text-slate-500 font-semibold">
-            Placed:{" "}
+            Order by:{" "}
             <span className="font-black text-slate-600 dark:text-slate-400">
-              {formatDateTime(order.created_at)}
+              {order.user_id}
             </span>
           </span>
         </div>
@@ -550,7 +558,10 @@ const OrderCard = React.forwardRef(({ order, mutating }, ref) => {
           ))}
           {order.special_request && (
             <div className="flex gap-2.5 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-2xl border border-amber-100 dark:border-amber-900/30 mt-1">
-              <AlertCircle size={14} className="shrink-0 text-amber-600 mt-0.5" />
+              <AlertCircle
+                size={14}
+                className="shrink-0 text-amber-600 mt-0.5"
+              />
               <p className="text-xs font-medium text-amber-800 dark:text-amber-300 italic leading-relaxed">
                 "{order.special_request}"
               </p>
@@ -593,7 +604,10 @@ const OrderCard = React.forwardRef(({ order, mutating }, ref) => {
           <div className="flex items-center gap-1.5 text-[9px] text-slate-400">
             <Clock size={9} />
             <span>
-              Updated: <span className="font-bold">{formatDateTime(order.updated_at)}</span>
+              Updated:{" "}
+              <span className="font-bold">
+                {formatDateTime(order.updated_at)}
+              </span>
             </span>
           </div>
         )}
@@ -769,10 +783,10 @@ const OrderManagement = () => {
     filters.dateFrom && filters.dateTo
       ? `${filters.dateFrom} → ${filters.dateTo}`
       : filters.dateFrom
-      ? `From ${filters.dateFrom}`
-      : filters.dateTo
-      ? `To ${filters.dateTo}`
-      : null;
+        ? `From ${filters.dateFrom}`
+        : filters.dateTo
+          ? `To ${filters.dateTo}`
+          : null;
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#0f172a] p-4 lg:p-8 transition-colors duration-300">
