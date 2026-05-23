@@ -447,6 +447,9 @@ const OrderCard = React.forwardRef(({ order, mutating }, ref) => {
             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">
               {order.order_id}
             </p>
+            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">
+              {order.user_id}
+            </p>
             <div className="flex items-center gap-1 text-xs text-slate-500 font-bold">
               <MapPin size={10} className="text-slate-400" />
               {order.table?.zone_name ?? "—"}
