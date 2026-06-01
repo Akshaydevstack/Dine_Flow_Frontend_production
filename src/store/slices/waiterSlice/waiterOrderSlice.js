@@ -1,10 +1,10 @@
-// store/slices/waiterOrderSlice.js
+// store/slices/waiterSlice/waiterOrderSlice.js
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import axiosClient from "../../../api/axiosClient"
+import axiosClient from "../../../api/axiosClient";
 import { v4 as uuidv4 } from "uuid";
 
 /* =========================================================
-   CACHE HELPERS (Same pattern as waiterMenu)
+   CACHE HELPERS
 ========================================================= */
 
 const buildQueryParams = (filters, page) => ({
@@ -27,7 +27,7 @@ const generateCacheKey = (filters, page) =>
   });
 
 /* =========================================================
-   FETCH ORDERS
+   FETCH ALL ORDERS
 ========================================================= */
 
 export const fetchWaiterOrders = createAsyncThunk(
@@ -40,7 +40,6 @@ export const fetchWaiterOrders = createAsyncThunk(
       const cacheKey = generateCacheKey(filters, page);
       const isLoadingMore = page > 1;
 
-      // 🔥 Cache hit
       if (state.cache[cacheKey]) {
         return {
           ...state.cache[cacheKey],
@@ -75,7 +74,45 @@ export const fetchWaiterOrders = createAsyncThunk(
 );
 
 /* =========================================================
-   CREATE
+   FETCH ORDERS TO ACCEPT
+========================================================= */
+
+export const fetchOrdersToAccept = createAsyncThunk(
+  "waiterOrder/fetchToAccept",
+  async (_, thunkApi) => {
+    try {
+      const res = await axiosClient.get("/order/waiter/to-accept/");
+      // The backend returns a paginated response, so we grab .results
+      const data = res.data.results || res.data || [];
+      return data;
+    } catch (err) {
+      return thunkApi.rejectWithValue(
+        err.response?.data || { message: "Failed to fetch pending orders" }
+      );
+    }
+  }
+);
+
+/* =========================================================
+   ACCEPT ORDER
+========================================================= */
+
+export const acceptWaiterOrder = createAsyncThunk(
+  "waiterOrder/accept",
+  async (order_id, thunkApi) => {
+    try {
+      const res = await axiosClient.post(`/order/waiter/accept/${order_id}/`);
+      return res.data; // Backend returns: {"status": "ACCEPTED", "order_id": "..."}
+    } catch (err) {
+      return thunkApi.rejectWithValue(
+        err.response?.data || { message: "Failed to accept order" }
+      );
+    }
+  }
+);
+
+/* =========================================================
+   CREATE ORDER
 ========================================================= */
 
 export const createWaiterOrder = createAsyncThunk(
@@ -97,7 +134,7 @@ export const createWaiterOrder = createAsyncThunk(
 );
 
 /* =========================================================
-   CANCEL
+   CANCEL ORDER
 ========================================================= */
 
 export const cancelWaiterOrder = createAsyncThunk(
@@ -119,19 +156,23 @@ export const cancelWaiterOrder = createAsyncThunk(
 ========================================================= */
 
 const initialState = {
+  // All Orders
   orders: [],
-  currentOrder: null,
-
-  loading: false,
-  loadingMore: false,
-  error: null,
-  fetched: false,
-
   count: 0,
   next: null,
   previous: null,
   page: 1,
   hasMore: true,
+  
+  // To Accept
+  toAcceptOrders: [],
+  loadingToAccept: false,
+
+  currentOrder: null,
+  loading: false,
+  loadingMore: false,
+  error: null,
+  fetched: false,
 
   filters: {
     status: null,
@@ -141,7 +182,7 @@ const initialState = {
     search: "",
   },
 
-  cache: {}, // { cacheKey: { results, count, next, previous } }
+  cache: {},
 };
 
 /* =========================================================
@@ -156,11 +197,9 @@ const waiterOrderSlice = createSlice({
     clearWaiterCurrentOrder(state) {
       state.currentOrder = null;
     },
-
     resetWaiterOrders() {
       return initialState;
     },
-
     setWaiterFilters(state, action) {
       state.filters = { ...state.filters, ...action.payload };
       state.orders = [];
@@ -168,7 +207,6 @@ const waiterOrderSlice = createSlice({
       state.hasMore = true;
       state.fetched = false;
     },
-
     invalidateCache(state) {
       state.cache = {};
       state.fetched = false;
@@ -177,7 +215,7 @@ const waiterOrderSlice = createSlice({
 
   extraReducers: (builder) => {
     builder
-      /* ───────── FETCH ───────── */
+      /* ───────── FETCH ALL ORDERS ───────── */
       .addCase(fetchWaiterOrders.pending, (state, action) => {
         const isLoadingMore = action.meta.arg > 1;
         if (isLoadingMore) {
@@ -187,17 +225,9 @@ const waiterOrderSlice = createSlice({
         }
         state.error = null;
       })
-
       .addCase(fetchWaiterOrders.fulfilled, (state, action) => {
         const {
-          results,
-          count,
-          next,
-          previous,
-          cacheKey,
-          fromCache,
-          requestedPage,
-          isLoadingMore,
+          results, count, next, previous, cacheKey, fromCache, requestedPage, isLoadingMore,
         } = action.payload;
 
         state.loading = false;
@@ -220,12 +250,42 @@ const waiterOrderSlice = createSlice({
           state.cache[cacheKey] = { results, count, next, previous };
         }
       })
-
       .addCase(fetchWaiterOrders.rejected, (state, action) => {
         state.loading = false;
         state.loadingMore = false;
         state.error = action.payload;
         state.fetched = true;
+      })
+
+      /* ───────── FETCH TO ACCEPT ───────── */
+      .addCase(fetchOrdersToAccept.pending, (state) => {
+        state.loadingToAccept = true;
+      })
+      .addCase(fetchOrdersToAccept.fulfilled, (state, action) => {
+        state.loadingToAccept = false;
+        state.toAcceptOrders = action.payload;
+      })
+      .addCase(fetchOrdersToAccept.rejected, (state, action) => {
+        state.loadingToAccept = false;
+        state.error = action.payload;
+      })
+
+      /* ───────── ACCEPT ORDER ───────── */
+      .addCase(acceptWaiterOrder.fulfilled, (state, action) => {
+        const acceptedOrderId = action.meta.arg;
+        const newStatus = action.payload.status || "ACCEPTED";
+        
+        // 1. Remove from the pending list
+        state.toAcceptOrders = state.toAcceptOrders.filter(
+          (o) => o.order_id !== acceptedOrderId
+        );
+
+        // 2. Update status in the 'all orders' list if it's there
+        state.orders = state.orders.map((o) =>
+          o.order_id === acceptedOrderId ? { ...o, status: newStatus } : o
+        );
+
+        state.cache = {}; // Force a fresh fetch next time page changes
       })
 
       /* ───────── CREATE ───────── */
@@ -237,23 +297,34 @@ const waiterOrderSlice = createSlice({
           state.orders.unshift(newOrder);
           state.count += 1;
         }
-
-        state.cache = {}; // invalidate cache
+        state.cache = {}; 
       })
 
       /* ───────── CANCEL ───────── */
       .addCase(cancelWaiterOrder.fulfilled, (state, action) => {
-        const updated = action.payload.order;
+        const canceledOrderId = action.meta.arg;
+        const updated = action.payload.order; 
 
-        state.orders = state.orders.map((o) =>
-          o.order_id === updated.order_id ? updated : o
-        );
-
-        if (state.currentOrder?.order_id === updated.order_id) {
-          state.currentOrder = updated;
+        // Safely update or fallback
+        if (updated) {
+          state.orders = state.orders.map((o) =>
+            o.order_id === updated.order_id ? updated : o
+          );
+          if (state.currentOrder?.order_id === updated.order_id) {
+            state.currentOrder = updated;
+          }
+        } else {
+          state.orders = state.orders.map((o) =>
+            o.order_id === canceledOrderId ? { ...o, status: "CANCELLED" } : o
+          );
         }
 
-        state.cache = {}; // invalidate cache
+        // Just in case it was in the pending list, remove it
+        state.toAcceptOrders = state.toAcceptOrders.filter(
+          (o) => o.order_id !== canceledOrderId
+        );
+
+        state.cache = {}; 
       });
   },
 });
