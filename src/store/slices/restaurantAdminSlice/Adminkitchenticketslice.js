@@ -192,6 +192,10 @@ const adminKitchenTicketSlice = createSlice({
       state.filters = initialFilters;
       state.cache   = {};
     },
+     invalidateAdminTicket(state) {
+      state.fetched = false;
+      state.cache   = {};
+    },
     clearTicketError(state) {
       state.error = null;
     },
@@ -282,6 +286,7 @@ export const {
   clearTicketDateRange,
   resetTicketFilters,
   clearTicketError,
+  invalidateAdminTicket,
 } = adminKitchenTicketSlice.actions;
 
 export default adminKitchenTicketSlice.reducer;

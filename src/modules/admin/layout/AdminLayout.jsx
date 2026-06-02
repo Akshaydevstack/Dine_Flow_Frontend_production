@@ -14,6 +14,11 @@ import {
 } from "../../../store/slices/restaurantAdminSlice/adminTableSlice";
 
 import {
+  invalidateAdminTicket
+} from "../../../store/slices/restaurantAdminSlice/Adminkitchenticketslice"
+
+
+import {
   useAdminOrderSocket,
   useAdminTableSocket,
 } from "../../../modules/admin/hooks/useAdminSockets";
@@ -75,11 +80,11 @@ export default function AdminLayout() {
             closePopup();
           }, 10000);
         }
-
+        dispatch(invalidateAdminTicket())
         dispatch(invalidateAdminOrders());
       }
     },
-    [dispatch, orderFilters, closePopup],
+    [dispatch, closePopup],
   );
 
   // -----------------------------------------------------
