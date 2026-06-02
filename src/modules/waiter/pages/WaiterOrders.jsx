@@ -1,6 +1,6 @@
 // pages/waiter/WaiterOrders.jsx
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
-import { useLocation } from "react-router-dom"; // 🟢 ADDED
+import { useLocation } from "react-router-dom";
 import {
   Clock,
   CheckCircle,
@@ -182,14 +182,14 @@ function OrderCard({
   const totalItems =
     order.items?.reduce((s, i) => s + (i.quantity || 1), 0) ?? 0;
 
-  const isMine = order.placed_by_me; // 🟢 CHECK FOR "MINE"
+  const isMine = order.placed_by_me;
 
   return (
     <div
       className={`relative bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-200 
       ${
         isMine
-          ? "border-2 border-violet-500 shadow-violet-500/20"
+          ? "ring-2 ring-violet-500 shadow-violet-500/20 border border-violet-500" // 🟢 FIX: Used 'ring' instead of 'border' to preserve layout flow
           : "border border-slate-200/80 dark:border-slate-700/80"
       }`}
     >
@@ -197,10 +197,11 @@ function OrderCard({
         style={{
           background: `linear-gradient(180deg, ${cfg.color} 0%, ${cfg.ring} 100%)`,
         }}
-        className="absolute left-0 top-0 bottom-0 w-[3px]"
+        // 🟢 FIX: Hide the absolute left bar if it's 'Mine' so the purple ring takes over perfectly
+        className={`absolute left-0 top-0 bottom-0 w-[3px] ${isMine ? "hidden" : ""}`}
       />
 
-      <div className="pl-[14px] pr-4 pt-3.5 pb-3">
+      <div className={`pl-[14px] pr-4 pt-3.5 pb-3 ${isMine ? "pl-4" : ""}`}>
         {/* Row 1: ID · Table · Badge · Time */}
         <div className="flex items-start justify-between gap-2 mb-2.5">
           <div className="flex-1 min-w-0">
@@ -454,9 +455,8 @@ function SheetOption({ label, active, onClick, checkmark = true }) {
 ═══════════════════════════════════════════════ */
 export default function WaiterOrders() {
   const dispatch = useAppDispatch();
-  const location = useLocation(); // 🟢 Listen for React Router state
+  const location = useLocation();
 
-  // "pending" | "ready" | "all"
   const [viewMode, setViewMode] = useState(location.state?.tab || "ready");
 
   const [selectedStatus, setSelectedStatus] = useState("all");
@@ -488,36 +488,30 @@ export default function WaiterOrders() {
     error,
   } = useAppSelector((s) => s.waiterOrder);
 
-  /* ── 🟢 ROUTING: Auto-switch tabs if directed from Layout popup ── */
   useEffect(() => {
     if (location.state?.tab) {
       setViewMode(location.state.tab);
-      // Clean up the URL state so a normal page refresh doesn't lock them to this tab
       window.history.replaceState({}, document.title);
     }
   }, [location.state]);
 
-  /* ── Initial Fetch: Pending & Ready Orders ── */
   useEffect(() => {
     dispatch(fetchOrdersToAccept());
     dispatch(fetchReadyOrders());
   }, [dispatch]);
 
-  /* ── Initial Fetch & Filter Update: All Orders ── */
   useEffect(() => {
     if (!fetched) {
       dispatch(fetchWaiterOrders(1));
     }
   }, [fetched, dispatch]);
 
-  /* ── Cleanup ── */
   useEffect(() => {
     return () => {
       dispatch(clearWaiterCurrentOrder());
     };
   }, [dispatch]);
 
-  /* ── Infinite scroll for "My Orders" (previously "All Orders") ── */
   useEffect(() => {
     const el = loadingRef.current;
     if (!el || viewMode !== "all") return;
@@ -536,7 +530,6 @@ export default function WaiterOrders() {
     return () => observer.unobserve(el);
   }, [hasMore, loading, loadingMore, page, dispatch, viewMode]);
 
-  /* ── Search & Filter Helpers ── */
   const applyFilters = useCallback(
     (patch) => {
       dispatch(setWaiterFilters(patch));
@@ -602,7 +595,6 @@ export default function WaiterOrders() {
     setAcceptLoading(null);
   };
 
-  /* ── Derived Data & 🟢 PRIORITY SORTING ── */
   const activeFilterCount = useMemo(
     () =>
       [filters.payment_status, filters.zone, filters.table].filter(Boolean)
@@ -615,7 +607,6 @@ export default function WaiterOrders() {
     [orders],
   );
 
-  // 🟢 Sorts "All" list, making sure "Mine" is ALWAYS at the top
   const sortedAllOrders = useMemo(() => {
     const arr = [...orders];
     switch (localSort) {
@@ -633,7 +624,6 @@ export default function WaiterOrders() {
         break;
     }
 
-    // Prioritize My Orders
     return arr.sort((a, b) => {
       if (a.placed_by_me && !b.placed_by_me) return -1;
       if (!a.placed_by_me && b.placed_by_me) return 1;
@@ -641,7 +631,6 @@ export default function WaiterOrders() {
     });
   }, [orders, localSort]);
 
-  // 🟢 Sorts Ready list to put "Mine" at the top
   const sortedReadyOrders = useMemo(() => {
     const arr = [...readyOrders];
     return arr.sort((a, b) => {
@@ -651,7 +640,6 @@ export default function WaiterOrders() {
     });
   }, [readyOrders]);
 
-  // 🟢 Sorts Pending list to put "Mine" at the top
   const sortedToAcceptOrders = useMemo(() => {
     const arr = [...toAcceptOrders];
     return arr.sort((a, b) => {
@@ -763,7 +751,6 @@ export default function WaiterOrders() {
                 </span>
               )}
             </button>
-            {/* 🟢 NEW: Renamed 'All' to 'My Orders' text visually */}
             <button
               onClick={() => setViewMode("all")}
               className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${viewMode === "all" ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm" : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"}`}
