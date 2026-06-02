@@ -180,7 +180,6 @@ const adminKitchenTicketSlice = createSlice({
     setTicketPage(state, { payload }) {
       state.filters.currentPage = payload;
     },
-    // Date range — payload: { dateFrom?: string, dateTo?: string }
     setTicketDateRange(state, { payload }) {
       if (payload.dateFrom !== undefined) state.filters.dateFrom = payload.dateFrom;
       if (payload.dateTo   !== undefined) state.filters.dateTo   = payload.dateTo;
@@ -262,6 +261,17 @@ const adminKitchenTicketSlice = createSlice({
       .addCase(updateItemStatus.rejected, (state, { payload, meta }) => {
         delete state.itemMutating[meta.arg.itemId];
         state.error = payload || "Failed to update item status";
+      })
+
+      /* ── 🟢 CROSS-SLICE INVALIDATION ── */
+      // Listen for the exact success actions from adminOrderSlice.js
+      .addCase("adminOrders/updateStatus/fulfilled", (state) => {
+        state.fetched = false;
+        state.cache = {};
+      })
+      .addCase("adminOrders/updatePayment/fulfilled", (state) => {
+        state.fetched = false;
+        state.cache = {};
       });
   },
 });

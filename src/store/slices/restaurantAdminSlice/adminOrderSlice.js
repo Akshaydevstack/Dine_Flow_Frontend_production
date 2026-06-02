@@ -36,7 +36,7 @@ export const fetchAdminOrders = createAsyncThunk(
   "adminOrders/fetch",
   async (filtersArg, { getState, rejectWithValue }) => {
     try {
-      // 🟢 THE FIX: Grab current filters directly from state if none passed
+      // 🟢 Grab current filters directly from state if none passed
       const filters = filtersArg || getState().adminOrders.filters;
 
       const cacheKey   = generateCacheKey(filters);
@@ -215,7 +215,6 @@ const adminOrderSlice = createSlice({
     builder
       /* ── FETCH ── */
       .addCase(fetchAdminOrders.pending, (state, { meta }) => {
-        // 🟢 FIX: Added optional chaining here so it doesn't crash!
         const page = meta.arg?.currentPage || 1;
         
         if (page > 1) {
@@ -271,7 +270,20 @@ const adminOrderSlice = createSlice({
       .addMatcher(
         ({ type }) => MUTATION_REJECTED.includes(type),
         (state, { meta }) => { delete state.mutating[meta.arg.publicId]; }
-      );
+      )
+      
+      /* ── 🟢 CROSS-SLICE INVALIDATION ── */
+      // Listen for the exact success actions from adminKitchenTicketSlice.js
+      // If the kitchen staff marks a ticket as "Ready" or "Preparing", 
+      // wipe the order cache so the Admin sees the latest info!
+      .addCase("adminKitchenTickets/updateStatus/fulfilled", (state) => {
+        state.fetched = false;
+        state.cache = {};
+      })
+      .addCase("adminKitchenTickets/updateItemStatus/fulfilled", (state) => {
+        state.fetched = false;
+        state.cache = {};
+      });
   },
 });
 
