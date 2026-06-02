@@ -1,5 +1,6 @@
 // pages/waiter/WaiterOrders.jsx
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import { useLocation } from "react-router-dom"; // 🟢 ADDED
 import {
   Clock,
   CheckCircle,
@@ -181,8 +182,17 @@ function OrderCard({
   const totalItems =
     order.items?.reduce((s, i) => s + (i.quantity || 1), 0) ?? 0;
 
+  const isMine = order.placed_by_me; // 🟢 CHECK FOR "MINE"
+
   return (
-    <div className="relative bg-white dark:bg-slate-900 rounded-2xl overflow-hidden border border-slate-200/80 dark:border-slate-700/80 shadow-sm hover:shadow-md transition-shadow duration-200">
+    <div
+      className={`relative bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-200 
+      ${
+        isMine
+          ? "border-2 border-violet-500 shadow-violet-500/20"
+          : "border border-slate-200/80 dark:border-slate-700/80"
+      }`}
+    >
       <div
         style={{
           background: `linear-gradient(180deg, ${cfg.color} 0%, ${cfg.ring} 100%)`,
@@ -199,8 +209,7 @@ function OrderCard({
                 {shortId(order.order_id)}
               </span>
 
-              {/* 🟢 NEW: Placed By Me Badge */}
-              {order.placed_by_me && (
+              {isMine && (
                 <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-violet-600 bg-violet-100 dark:bg-violet-900/40 dark:text-violet-400 px-1.5 py-0.5 rounded-md">
                   <User className="w-3 h-3" /> Mine
                 </span>
@@ -445,9 +454,10 @@ function SheetOption({ label, active, onClick, checkmark = true }) {
 ═══════════════════════════════════════════════ */
 export default function WaiterOrders() {
   const dispatch = useAppDispatch();
+  const location = useLocation(); // 🟢 Listen for React Router state
 
   // "pending" | "ready" | "all"
-  const [viewMode, setViewMode] = useState("ready");
+  const [viewMode, setViewMode] = useState(location.state?.tab || "ready");
 
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [localSort, setLocalSort] = useState("newest");
@@ -466,10 +476,10 @@ export default function WaiterOrders() {
   const {
     orders = [],
     toAcceptOrders = [],
-    readyOrders = [], // 🟢 Added readyOrders mapping
+    readyOrders = [],
     loading,
     loadingToAccept,
-    loadingReady,     // 🟢 Added loadingReady mapping
+    loadingReady,
     fetched,
     hasMore,
     page,
@@ -478,10 +488,19 @@ export default function WaiterOrders() {
     error,
   } = useAppSelector((s) => s.waiterOrder);
 
+  /* ── 🟢 ROUTING: Auto-switch tabs if directed from Layout popup ── */
+  useEffect(() => {
+    if (location.state?.tab) {
+      setViewMode(location.state.tab);
+      // Clean up the URL state so a normal page refresh doesn't lock them to this tab
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
+
   /* ── Initial Fetch: Pending & Ready Orders ── */
   useEffect(() => {
     dispatch(fetchOrdersToAccept());
-    dispatch(fetchReadyOrders()); // 🟢 Fetch the custom ready orders
+    dispatch(fetchReadyOrders());
   }, [dispatch]);
 
   /* ── Initial Fetch & Filter Update: All Orders ── */
@@ -498,7 +517,7 @@ export default function WaiterOrders() {
     };
   }, [dispatch]);
 
-  /* ── Infinite scroll for "All Orders" ── */
+  /* ── Infinite scroll for "My Orders" (previously "All Orders") ── */
   useEffect(() => {
     const el = loadingRef.current;
     if (!el || viewMode !== "all") return;
@@ -525,7 +544,6 @@ export default function WaiterOrders() {
     [dispatch],
   );
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   const debouncedSearch = useCallback(
     debounce((val) => applyFilters({ search: val }), 400),
     [applyFilters],
@@ -564,7 +582,7 @@ export default function WaiterOrders() {
     if (viewMode === "pending") {
       await dispatch(fetchOrdersToAccept());
     } else if (viewMode === "ready") {
-      await dispatch(fetchReadyOrders()); // 🟢 Refresh ready orders
+      await dispatch(fetchReadyOrders());
     } else {
       dispatch(invalidateCache());
     }
@@ -584,7 +602,7 @@ export default function WaiterOrders() {
     setAcceptLoading(null);
   };
 
-  /* ── Derived Data ── */
+  /* ── Derived Data & 🟢 PRIORITY SORTING ── */
   const activeFilterCount = useMemo(
     () =>
       [filters.payment_status, filters.zone, filters.table].filter(Boolean)
@@ -592,44 +610,70 @@ export default function WaiterOrders() {
     [filters],
   );
 
-  // Still derived for the banner if user is viewing "All" 
   const localReadyOrders = useMemo(
     () => orders.filter((o) => o.status === "READY"),
     [orders],
   );
 
+  // 🟢 Sorts "All" list, making sure "Mine" is ALWAYS at the top
   const sortedAllOrders = useMemo(() => {
     const arr = [...orders];
     switch (localSort) {
       case "oldest":
-        return arr.sort(
-          (a, b) => new Date(a.created_at) - new Date(b.created_at),
-        );
+        arr.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+        break;
       case "total-high":
-        return arr.sort((a, b) => parseFloat(b.total) - parseFloat(a.total));
+        arr.sort((a, b) => parseFloat(b.total) - parseFloat(a.total));
+        break;
       case "total-low":
-        return arr.sort((a, b) => parseFloat(a.total) - parseFloat(b.total));
+        arr.sort((a, b) => parseFloat(a.total) - parseFloat(b.total));
+        break;
       default:
-        return arr.sort(
-          (a, b) => new Date(b.created_at) - new Date(a.created_at),
-        );
+        arr.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        break;
     }
+
+    // Prioritize My Orders
+    return arr.sort((a, b) => {
+      if (a.placed_by_me && !b.placed_by_me) return -1;
+      if (!a.placed_by_me && b.placed_by_me) return 1;
+      return 0;
+    });
   }, [orders, localSort]);
 
-  // 🟢 Select dataset and loading state based on view mode
+  // 🟢 Sorts Ready list to put "Mine" at the top
+  const sortedReadyOrders = useMemo(() => {
+    const arr = [...readyOrders];
+    return arr.sort((a, b) => {
+      if (a.placed_by_me && !b.placed_by_me) return -1;
+      if (!a.placed_by_me && b.placed_by_me) return 1;
+      return 0;
+    });
+  }, [readyOrders]);
+
+  // 🟢 Sorts Pending list to put "Mine" at the top
+  const sortedToAcceptOrders = useMemo(() => {
+    const arr = [...toAcceptOrders];
+    return arr.sort((a, b) => {
+      if (a.placed_by_me && !b.placed_by_me) return -1;
+      if (!a.placed_by_me && b.placed_by_me) return 1;
+      return 0;
+    });
+  }, [toAcceptOrders]);
+
   const currentDataset =
     viewMode === "pending"
-      ? toAcceptOrders
+      ? sortedToAcceptOrders
       : viewMode === "ready"
-      ? readyOrders
-      : sortedAllOrders;
+        ? sortedReadyOrders
+        : sortedAllOrders;
 
   const isInitialLoading =
     viewMode === "pending"
       ? loadingToAccept
       : viewMode === "ready"
-      ? loadingReady
-      : loading && !fetched;
+        ? loadingReady
+        : loading && !fetched;
 
   const showEmpty = !isInitialLoading && currentDataset.length === 0;
 
@@ -656,8 +700,8 @@ export default function WaiterOrders() {
                   {viewMode === "pending"
                     ? `${toAcceptOrders.length} pending`
                     : viewMode === "ready"
-                    ? `${readyOrders.length} ready`
-                    : `${count} total`}
+                      ? `${readyOrders.length} ready`
+                      : `${count} total`}
                 </p>
               </div>
             </div>
@@ -696,7 +740,6 @@ export default function WaiterOrders() {
             </div>
           </div>
 
-          {/* 🟢 NEW: 3-Way Segmented Control */}
           <div className="flex p-1 bg-slate-100 dark:bg-slate-800 rounded-xl">
             <button
               onClick={() => setViewMode("pending")}
@@ -720,15 +763,15 @@ export default function WaiterOrders() {
                 </span>
               )}
             </button>
+            {/* 🟢 NEW: Renamed 'All' to 'My Orders' text visually */}
             <button
               onClick={() => setViewMode("all")}
               className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${viewMode === "all" ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm" : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"}`}
             >
-              All
+              My Orders
             </button>
           </div>
 
-          {/* Sub-Filters for "All Orders" only */}
           {viewMode === "all" && (
             <div className="mt-3">
               {showSearch && (
@@ -877,21 +920,20 @@ export default function WaiterOrders() {
           CONTENT
       ══════════════════════════════════════ */}
       <div className="px-4 pt-4 pb-6">
-        {/* Banner linking back to Ready Mode from 'All' Mode */}
         {viewMode === "all" && localReadyOrders.length > 0 && (
-          <button 
+          <button
             onClick={() => setViewMode("ready")}
             className="w-full flex items-center gap-3 bg-green-500 hover:bg-green-600 transition-colors text-white rounded-2xl px-4 py-3 mb-4 shadow-md text-left"
           >
             <Zap className="w-5 h-5 flex-shrink-0 animate-pulse" />
             <p className="text-sm font-bold flex-1">
-              {localReadyOrders.length} order{localReadyOrders.length > 1 && 's'} ready to serve!
+              {localReadyOrders.length} order
+              {localReadyOrders.length > 1 && "s"} ready to serve!
             </p>
             <ChevronRight className="w-4 h-4 opacity-70" />
           </button>
         )}
 
-        {/* Loading */}
         {isInitialLoading && (
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
@@ -900,7 +942,6 @@ export default function WaiterOrders() {
           </div>
         )}
 
-        {/* Empty State */}
         {showEmpty && !error && (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <div className="w-20 h-20 bg-slate-100 dark:bg-slate-800 rounded-3xl flex items-center justify-center mx-auto mb-4">
@@ -916,20 +957,19 @@ export default function WaiterOrders() {
               {viewMode === "pending"
                 ? "No orders to accept"
                 : viewMode === "ready"
-                ? "No orders ready right now"
-                : "No orders found"}
+                  ? "No orders ready right now"
+                  : "No orders found"}
             </p>
             <p className="text-sm text-slate-400 mb-5">
               {viewMode === "pending"
                 ? "You're all caught up!"
                 : viewMode === "ready"
-                ? "Check back later or wait for kitchen alerts."
-                : "Try adjusting filters or orders will appear here"}
+                  ? "Check back later or wait for kitchen alerts."
+                  : "Try adjusting filters or orders will appear here"}
             </p>
           </div>
         )}
 
-        {/* Order List */}
         {!isInitialLoading && currentDataset.length > 0 && (
           <div className="space-y-3">
             {currentDataset.map((order) => (
@@ -944,7 +984,6 @@ export default function WaiterOrders() {
               />
             ))}
 
-            {/* Pagination Sentinel */}
             {viewMode === "all" && (
               <>
                 <div ref={loadingRef} className="h-2" />

@@ -1,3 +1,4 @@
+// WaiterLayout.jsx (Full file)
 import { Outlet, useNavigate } from "react-router-dom";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useDispatch } from "react-redux";
@@ -11,7 +12,6 @@ import {
   useWaiterDisplaySocket,
 } from "../../hooks/useWaiterSocket";
 
-// 🟢 NEW: Imported PackageCheck for the ready order icon
 import { BellRing, X, Utensils, PackageCheck } from "lucide-react"; 
 import axiosClient from "../../../../api/axiosClient";
 import {
@@ -24,9 +24,11 @@ export default function WaiterLayout() {
   const navigate = useNavigate();
   const token = useAppSelector((state) => state.auth.accessToken);
   const isAuthenticated = useAppSelector((state) => state.auth.isAuthenticated);
+  
+  // Grab the current waiter's ID
+  const internal_id = useAppSelector((state) => state.auth.user?.id);
 
   const [orderAlert, setOrderAlert] = useState(null);
-  
   const audioRef = useRef(null);
 
   const closePopup = useCallback(() => {
@@ -61,18 +63,17 @@ export default function WaiterLayout() {
       // 🟢 HANDLE NEW ORDERS
       if (message.type === "new_order_alert") {
         const eventData = message.data;
-        console.log("🛎️ Instant Foreground Alert (New Order):", eventData);
 
-        if (eventData.event_type === "ORDER_CREATED") {
+        // Skip popup if the waiter placed it themselves
+        if (
+          eventData.event_type === "ORDER_CREATED" && 
+          eventData.user_id !== internal_id
+        ) {
           audioRef.current = new Audio("/bell.wav");
           audioRef.current.play().catch((e) => console.log("Audio play blocked:", e));
 
-          // Tag it as a NEW_ORDER for the UI
           setOrderAlert({ ...eventData, alertType: "NEW_ORDER" });
-
-          setTimeout(() => {
-            closePopup();
-          }, 10000);
+          setTimeout(() => closePopup(), 10000);
         }
 
         dispatch(fetchOrdersToAccept());
@@ -80,23 +81,17 @@ export default function WaiterLayout() {
       // 🟢 HANDLE ORDER READY FROM KITCHEN
       else if (message.type === "order_ready_alert") {
         const eventData = message.data;
-        console.log("🍽️ Instant Foreground Alert (Order Ready):", eventData);
 
-        audioRef.current = new Audio("/bell.wav"); // Change to a different sound if you have one!
+        audioRef.current = new Audio("/bell.wav"); 
         audioRef.current.play().catch((e) => console.log("Audio play blocked:", e));
 
-        // Tag it as an ORDER_READY for the UI
         setOrderAlert({ ...eventData, alertType: "ORDER_READY" });
+        setTimeout(() => closePopup(), 10000);
 
-        setTimeout(() => {
-          closePopup();
-        }, 10000);
-
-        // Refresh orders list so the new "Ready" status shows up
         dispatch(fetchOrdersToAccept());
       }
     },
-    [dispatch, closePopup],
+    [dispatch, closePopup, internal_id],
   );
 
   useWaiterDisplaySocket({
@@ -116,10 +111,7 @@ export default function WaiterLayout() {
       if (fcmToken) {
         await axiosClient.post(
           "/notification/waiter/firebase-fcm/register-device/",
-          {
-            fcm_token: fcmToken,
-            device_type: "web",
-          },
+          { fcm_token: fcmToken, device_type: "web" }
         );
         setShowPrompt(false);
       }
@@ -143,9 +135,6 @@ export default function WaiterLayout() {
 
   useEffect(() => {
     const unsubscribe = onMessageListener((payload) => {
-      console.log("🔔 Waiter FCM Notification received:", payload);
-
-      // 🟢 FIX: Trigger refresh for BOTH New Orders and Ready Orders
       const title = payload?.notification?.title || "";
       if (title.includes("New Order") || title.includes("Ready")) {
         dispatch(fetchOrdersToAccept());
@@ -163,17 +152,14 @@ export default function WaiterLayout() {
     };
   }, [dispatch]);
 
-  const isIos = () => {
-    const userAgent = window.navigator.userAgent.toLowerCase();
-    return /iphone|ipad|ipod/.test(userAgent);
-  };
-  const isStandalone = () => {
-    return "standalone" in window.navigator && window.navigator.standalone;
-  };
+  const isIos = () => /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
+  const isStandalone = () => "standalone" in window.navigator && window.navigator.standalone;
 
+  // 🟢 ROUTING FIX: Open the correct tab based on the alert
   const handleViewOrders = () => {
     closePopup(); 
-    navigate("/waiter/orders");
+    const targetTab = orderAlert?.alertType === "ORDER_READY" ? "ready" : "pending";
+    navigate("/waiter/orders", { state: { tab: targetTab } });
   };
 
   // -----------------------------------------------------
@@ -198,7 +184,6 @@ export default function WaiterLayout() {
               <X size={18} />
             </button>
 
-            {/* 🟢 DYNAMIC ICON & COLORS */}
             <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-5 shadow-inner ${
               orderAlert.alertType === "ORDER_READY" 
                 ? "bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400" 
@@ -211,7 +196,6 @@ export default function WaiterLayout() {
               )}
             </div>
 
-            {/* 🟢 DYNAMIC TITLE */}
             <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-2 tracking-tight">
               {orderAlert.alertType === "ORDER_READY" ? "Order Ready!" : "New Order!"}
             </h2>
