@@ -61,8 +61,7 @@ export default function WaiterBottomNav() {
     {
       path: "/waiter/orders",
       icon: ClipboardList,
-      label: "Orders",
-      hasBadge: true,
+      label: "Orders"
     },
     { path: "/waiter/profile", icon: User, label: "Profile" },
   ];
@@ -126,12 +125,7 @@ export default function WaiterBottomNav() {
           </span>
         )}
 
-        {/* Order Badge */}
-        {item.hasBadge && !isActive && (
-          <span className="absolute -top-1 -right-1.5 flex h-3.5 w-3.5 sm:h-4 sm:w-4 items-center justify-center rounded-full bg-amber-500 text-[8px] sm:text-[9px] font-bold text-white ring-2 ring-white dark:ring-gray-900">
-            •
-          </span>
-        )}
+       
       </div>
 
       <span

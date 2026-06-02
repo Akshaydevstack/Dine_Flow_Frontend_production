@@ -82,12 +82,28 @@ export const fetchOrdersToAccept = createAsyncThunk(
   async (_, thunkApi) => {
     try {
       const res = await axiosClient.get("/order/waiter/to-accept/");
-      // The backend returns a paginated response, so we grab .results
-      const data = res.data.results || res.data || [];
-      return data;
+      return res.data.results || res.data || [];
     } catch (err) {
       return thunkApi.rejectWithValue(
         err.response?.data || { message: "Failed to fetch pending orders" }
+      );
+    }
+  }
+);
+
+/* =========================================================
+   🟢 NEW: FETCH READY ORDERS
+========================================================= */
+
+export const fetchReadyOrders = createAsyncThunk(
+  "waiterOrder/fetchReady",
+  async (_, thunkApi) => {
+    try {
+      const res = await axiosClient.get("/order/waiter/ready-order/");
+      return res.data.results || res.data || [];
+    } catch (err) {
+      return thunkApi.rejectWithValue(
+        err.response?.data || { message: "Failed to fetch ready orders" }
       );
     }
   }
@@ -102,7 +118,7 @@ export const acceptWaiterOrder = createAsyncThunk(
   async (order_id, thunkApi) => {
     try {
       const res = await axiosClient.post(`/order/waiter/accept/${order_id}/`);
-      return res.data; // Backend returns: {"status": "ACCEPTED", "order_id": "..."}
+      return res.data;
     } catch (err) {
       return thunkApi.rejectWithValue(
         err.response?.data || { message: "Failed to accept order" }
@@ -167,6 +183,10 @@ const initialState = {
   // To Accept
   toAcceptOrders: [],
   loadingToAccept: false,
+
+  // 🟢 Ready Orders
+  readyOrders: [],
+  loadingReady: false,
 
   currentOrder: null,
   loading: false,
@@ -270,22 +290,31 @@ const waiterOrderSlice = createSlice({
         state.error = action.payload;
       })
 
+      /* ───────── 🟢 FETCH READY ORDERS ───────── */
+      .addCase(fetchReadyOrders.pending, (state) => {
+        state.loadingReady = true;
+      })
+      .addCase(fetchReadyOrders.fulfilled, (state, action) => {
+        state.loadingReady = false;
+        state.readyOrders = action.payload;
+      })
+      .addCase(fetchReadyOrders.rejected, (state, action) => {
+        state.loadingReady = false;
+        state.error = action.payload;
+      })
+
       /* ───────── ACCEPT ORDER ───────── */
       .addCase(acceptWaiterOrder.fulfilled, (state, action) => {
         const acceptedOrderId = action.meta.arg;
         const newStatus = action.payload.status || "ACCEPTED";
         
-        // 1. Remove from the pending list
         state.toAcceptOrders = state.toAcceptOrders.filter(
           (o) => o.order_id !== acceptedOrderId
         );
-
-        // 2. Update status in the 'all orders' list if it's there
         state.orders = state.orders.map((o) =>
           o.order_id === acceptedOrderId ? { ...o, status: newStatus } : o
         );
-
-        state.cache = {}; // Force a fresh fetch next time page changes
+        state.cache = {}; 
       })
 
       /* ───────── CREATE ───────── */
@@ -305,7 +334,6 @@ const waiterOrderSlice = createSlice({
         const canceledOrderId = action.meta.arg;
         const updated = action.payload.order; 
 
-        // Safely update or fallback
         if (updated) {
           state.orders = state.orders.map((o) =>
             o.order_id === updated.order_id ? updated : o
@@ -319,8 +347,10 @@ const waiterOrderSlice = createSlice({
           );
         }
 
-        // Just in case it was in the pending list, remove it
         state.toAcceptOrders = state.toAcceptOrders.filter(
+          (o) => o.order_id !== canceledOrderId
+        );
+        state.readyOrders = state.readyOrders.filter(
           (o) => o.order_id !== canceledOrderId
         );
 
