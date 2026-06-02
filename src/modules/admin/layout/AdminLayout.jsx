@@ -13,11 +13,15 @@ import {
   invalidateAdminTables,
 } from "../../../store/slices/restaurantAdminSlice/adminTableSlice";
 
-// 🟢 Import the two new custom hooks (Adjust path if necessary!)
 import {
   useAdminOrderSocket,
   useAdminTableSocket,
 } from "../../../modules/admin/hooks/useAdminSockets";
+
+import {
+  fetchAdminTableSessions,
+  invalidateAdminTableSessions,
+} from "../../../store/slices/restaurantAdminSlice/adminTableSessionsSlice";
 
 import { BellRing, X, Utensils } from "lucide-react";
 
@@ -36,6 +40,7 @@ export default function AdminLayout() {
 
   const orderFilters = useAppSelector((state) => state.adminOrders?.filters);
   const tableFilters = useAppSelector((state) => state.adminTables?.filters);
+  const sessionFilters = useAppSelector((state) => state.adminTableSessions?.filters);
 
   // -----------------------------------------------------
   // 🟢 WebSocket Handler 1: Live Order Updates
@@ -72,16 +77,19 @@ export default function AdminLayout() {
   // -----------------------------------------------------
   const handleTableUpdate = useCallback(
     (message) => {
-      // Listen for the specific type emitted by your Django AdminTableConsumer
       if (message.type === "admin_table_update") {
         console.log("🪑 Admin Table Event Received:", message.data);
-
-        // Silently refresh the tables list in the background
+        
+        // 💥 Clear both caches
         dispatch(invalidateAdminTables());
+        dispatch(invalidateAdminTableSessions());
+
+        // 🔄 Refetch both datasets
         if (tableFilters) dispatch(fetchAdminTables(tableFilters));
+        if (sessionFilters) dispatch(fetchAdminTableSessions(sessionFilters));
       }
     },
-    [dispatch, tableFilters],
+    [dispatch, tableFilters, sessionFilters], // 🟢 Add sessionFilters to dependencies!
   );
 
   // Initialize both sockets

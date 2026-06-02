@@ -25,9 +25,12 @@ const generateCacheKey = (filters) =>
 
 export const fetchAdminTableSessions = createAsyncThunk(
   "adminTableSessions/fetch",
-  async (filters, thunkApi) => {
+  async (filtersArg, thunkApi) => {
     try {
       const state = thunkApi.getState();
+      // 🟢 FIX 1: Safely grab filters from state if none are passed
+      const filters = filtersArg || state.adminTableSessions.filters;
+      
       const cacheKey = generateCacheKey(filters);
       const isLoadMore = filters.currentPage > 1;
 
@@ -182,6 +185,12 @@ const adminTableSessionSlice = createSlice({
       state.error = null;
       state.success = null;
     },
+    
+    // 🟢 FIX 2: Added invalidate cache action
+    invalidateAdminTableSessions(state) {
+      state.fetched = false;
+      state.cache = {};
+    },
   },
 
   extraReducers: (builder) => {
@@ -190,7 +199,8 @@ const adminTableSessionSlice = createSlice({
       /* FETCH */
 
       .addCase(fetchAdminTableSessions.pending, (state, { meta }) => {
-        const page = meta.arg.currentPage;
+        // 🟢 FIX 3: Optional chaining here prevents the crash!
+        const page = meta.arg?.currentPage || 1;
 
         if (page > 1) state.loadingMore = true;
         else if (state.fetched) state.isRefreshing = true;
@@ -276,6 +286,7 @@ export const {
   setSessionPage,
   resetSessionFilters,
   clearSessionMessages,
+  invalidateAdminTableSessions, // 🟢 EXPORTED
 } = adminTableSessionSlice.actions;
 
 export default adminTableSessionSlice.reducer;
