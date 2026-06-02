@@ -36,7 +36,6 @@ export const fetchAdminOrders = createAsyncThunk(
   "adminOrders/fetch",
   async (filtersArg, { getState, rejectWithValue }) => {
     try {
-      // 🟢 Grab current filters directly from state if none passed
       const filters = filtersArg || getState().adminOrders.filters;
 
       const cacheKey   = generateCacheKey(filters);
@@ -55,7 +54,6 @@ export const fetchAdminOrders = createAsyncThunk(
       if (filters.status !== "all")         params.status         = filters.status;
       if (filters.paymentStatus !== "all")  params.payment_status = filters.paymentStatus;
 
-      // Date range filters
       if (filters.dateFrom)  params.created_at_after  = filters.dateFrom;
       if (filters.dateTo)    params.created_at_before = filters.dateTo;
 
@@ -265,6 +263,9 @@ const adminOrderSlice = createSlice({
           const order = payload?.order ?? payload;
           patchOrderInState(state, order);
           if (order?.order_id) delete state.mutating[order.order_id];
+          
+          // 🟢 FIX: Set fetched to false so the component refetches on next visit
+          state.fetched = false;
         }
       )
       .addMatcher(
@@ -272,9 +273,7 @@ const adminOrderSlice = createSlice({
         (state, { meta }) => { delete state.mutating[meta.arg.publicId]; }
       )
       
-      /* ── 🟢 CROSS-SLICE INVALIDATION ── */
-      // Listen for the exact success actions from kitchenSlice.js (the kitchen staff app)
-      // and adminKitchenTicketSlice.js (admin portal)
+      /* ── CROSS-SLICE INVALIDATION ── */
       .addCase("adminKitchenTickets/updateStatus/fulfilled", (state) => {
         state.fetched = false;
         state.cache = {};
@@ -295,14 +294,8 @@ const adminOrderSlice = createSlice({
         state.fetched = false;
         state.cache = {};
       });
-
-      
   },
 });
-
-/* =========================================================
-   EXPORTS
-========================================================= */
 
 export const {
   setAdminOrderSearch,
@@ -318,10 +311,6 @@ export const {
 } = adminOrderSlice.actions;
 
 export default adminOrderSlice.reducer;
-
-/* =========================================================
-   SELECTORS
-========================================================= */
 
 export const selectAdminOrders            = (s) => s.adminOrders.orders;
 export const selectAdminOrderFilters      = (s) => s.adminOrders.filters;

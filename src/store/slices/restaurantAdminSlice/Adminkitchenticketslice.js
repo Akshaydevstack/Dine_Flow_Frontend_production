@@ -26,7 +26,6 @@ const generateCacheKey = (filters) =>
    THUNKS
 ========================================================= */
 
-/* ── 1. Fetch paginated ticket list ── */
 export const fetchAdminKitchenTickets = createAsyncThunk(
   "adminKitchenTickets/fetch",
   async (filters, thunkApi) => {
@@ -52,7 +51,6 @@ export const fetchAdminKitchenTickets = createAsyncThunk(
       if (filters.searchQuery?.trim())    params.search = filters.searchQuery.trim();
       if (filters.statusFilter !== "all") params.status = filters.statusFilter;
 
-      // Date range filters — sent as ISO date strings (YYYY-MM-DD)
       if (filters.dateFrom) params.created_at_after  = filters.dateFrom;
       if (filters.dateTo)   params.created_at_before = filters.dateTo;
 
@@ -74,7 +72,6 @@ export const fetchAdminKitchenTickets = createAsyncThunk(
   }
 );
 
-/* ── 2. Advance ticket status — POST /tickets/<public_id>/status/ ── */
 export const updateTicketStatus = createAsyncThunk(
   "adminKitchenTickets/updateStatus",
   async ({ publicId, status }, thunkApi) => {
@@ -94,7 +91,6 @@ export const updateTicketStatus = createAsyncThunk(
   }
 );
 
-/* ── 3. Advance item status — POST /items/<item_id>/status/ ── */
 export const updateItemStatus = createAsyncThunk(
   "adminKitchenTickets/updateItemStatus",
   async ({ itemId, status, ticketPublicId }, thunkApi) => {
@@ -142,8 +138,8 @@ const initialFilters = {
   sortBy:       "newest",
   currentPage:  1,
   itemsPerPage: 15,
-  dateFrom:     "",   // "YYYY-MM-DD" or ""
-  dateTo:       "",   // "YYYY-MM-DD" or ""
+  dateFrom:     "",
+  dateTo:       "",
 };
 
 const adminKitchenTicketSlice = createSlice({
@@ -243,6 +239,9 @@ const adminKitchenTicketSlice = createSlice({
       .addCase(updateTicketStatus.fulfilled, (state, { payload, meta }) => {
         delete state.mutating[meta.arg.publicId];
         patchTicketInState(state, payload);
+        
+        // 🟢 FIX: Set fetched to false to trigger refetch
+        state.fetched = false;
       })
       .addCase(updateTicketStatus.rejected, (state, { payload, meta }) => {
         delete state.mutating[meta.arg.publicId];
@@ -257,14 +256,16 @@ const adminKitchenTicketSlice = createSlice({
       .addCase(updateItemStatus.fulfilled, (state, { payload, meta }) => {
         delete state.itemMutating[meta.arg.itemId];
         patchItemInTicket(state, payload.ticketPublicId, payload.item);
+        
+        // 🟢 FIX: Set fetched to false to trigger refetch
+        state.fetched = false;
       })
       .addCase(updateItemStatus.rejected, (state, { payload, meta }) => {
         delete state.itemMutating[meta.arg.itemId];
         state.error = payload || "Failed to update item status";
       })
 
-      /* ── 🟢 CROSS-SLICE INVALIDATION ── */
-      // Listen for the exact success actions from adminOrderSlice.js
+      /* ── CROSS-SLICE INVALIDATION ── */
       .addCase("adminOrders/updateStatus/fulfilled", (state) => {
         state.fetched = false;
         state.cache = {};
@@ -288,9 +289,6 @@ const adminKitchenTicketSlice = createSlice({
   },
 });
 
-/* =========================================================
-   EXPORTS
-========================================================= */
 export const {
   setTicketSearch,
   setTicketStatusFilter,
@@ -304,9 +302,6 @@ export const {
 
 export default adminKitchenTicketSlice.reducer;
 
-/* =========================================================
-   SELECTORS
-========================================================= */
 export const selectKitchenTickets           = (s) => s.adminKitchenTickets.tickets;
 export const selectKitchenTicketFilters     = (s) => s.adminKitchenTickets.filters;
 export const selectKitchenTicketPagination  = (s) => s.adminKitchenTickets.pagination;
