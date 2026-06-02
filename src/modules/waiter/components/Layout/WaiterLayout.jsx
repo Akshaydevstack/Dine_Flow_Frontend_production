@@ -11,7 +11,8 @@ import {
   useWaiterDisplaySocket,
 } from "../../hooks/useWaiterSocket";
 
-import { BellRing, X, Utensils } from "lucide-react";
+// 🟢 NEW: Imported PackageCheck for the ready order icon
+import { BellRing, X, Utensils, PackageCheck } from "lucide-react"; 
 import axiosClient from "../../../../api/axiosClient";
 import {
   requestForToken,
@@ -26,15 +27,13 @@ export default function WaiterLayout() {
 
   const [orderAlert, setOrderAlert] = useState(null);
   
-  // 🟢 NEW: Store the audio object so we can pause it later
   const audioRef = useRef(null);
 
-  // 🟢 NEW: Unified function to close the popup AND stop the sound
   const closePopup = useCallback(() => {
     setOrderAlert(null);
     if (audioRef.current) {
       audioRef.current.pause();
-      audioRef.current.currentTime = 0; // Reset to beginning
+      audioRef.current.currentTime = 0; 
     }
   }, []);
 
@@ -59,24 +58,41 @@ export default function WaiterLayout() {
   // -----------------------------------------------------
   const handleWaiterDisplayUpdate = useCallback(
     (message) => {
+      // 🟢 HANDLE NEW ORDERS
       if (message.type === "new_order_alert") {
         const eventData = message.data;
-        console.log("🛎️ Instant Foreground Alert:", eventData);
+        console.log("🛎️ Instant Foreground Alert (New Order):", eventData);
 
         if (eventData.event_type === "ORDER_CREATED") {
-          // 🟢 Initialize audio and save it to the ref
           audioRef.current = new Audio("/bell.wav");
-          audioRef.current.play().catch((e) => console.log("Audio play blocked (User must interact first):", e));
+          audioRef.current.play().catch((e) => console.log("Audio play blocked:", e));
 
-          setOrderAlert(eventData);
+          // Tag it as a NEW_ORDER for the UI
+          setOrderAlert({ ...eventData, alertType: "NEW_ORDER" });
 
-          // Auto-dismiss after 10 seconds and stop sound
           setTimeout(() => {
             closePopup();
           }, 10000);
         }
 
-        // Refresh orders list silently in the background
+        dispatch(fetchOrdersToAccept());
+      } 
+      // 🟢 HANDLE ORDER READY FROM KITCHEN
+      else if (message.type === "order_ready_alert") {
+        const eventData = message.data;
+        console.log("🍽️ Instant Foreground Alert (Order Ready):", eventData);
+
+        audioRef.current = new Audio("/bell.wav"); // Change to a different sound if you have one!
+        audioRef.current.play().catch((e) => console.log("Audio play blocked:", e));
+
+        // Tag it as an ORDER_READY for the UI
+        setOrderAlert({ ...eventData, alertType: "ORDER_READY" });
+
+        setTimeout(() => {
+          closePopup();
+        }, 10000);
+
+        // Refresh orders list so the new "Ready" status shows up
         dispatch(fetchOrdersToAccept());
       }
     },
@@ -129,7 +145,9 @@ export default function WaiterLayout() {
     const unsubscribe = onMessageListener((payload) => {
       console.log("🔔 Waiter FCM Notification received:", payload);
 
-      if (payload?.notification?.title?.includes("New Order")) {
+      // 🟢 FIX: Trigger refresh for BOTH New Orders and Ready Orders
+      const title = payload?.notification?.title || "";
+      if (title.includes("New Order") || title.includes("Ready")) {
         dispatch(fetchOrdersToAccept());
       }
 
@@ -154,7 +172,7 @@ export default function WaiterLayout() {
   };
 
   const handleViewOrders = () => {
-    closePopup(); // 🟢 Stop sound and hide popup
+    closePopup(); 
     navigate("/waiter/orders");
   };
 
@@ -174,30 +192,41 @@ export default function WaiterLayout() {
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm transition-opacity">
           <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6 w-full max-w-sm flex flex-col items-center text-center relative animate-in fade-in zoom-in duration-300">
             <button
-              onClick={closePopup} // 🟢 Use unified close function
+              onClick={closePopup}
               className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
             >
               <X size={18} />
             </button>
 
-            <div className="w-20 h-20 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center text-green-600 dark:text-green-400 mb-5 shadow-inner">
-              <BellRing size={36} className="animate-bounce" />
+            {/* 🟢 DYNAMIC ICON & COLORS */}
+            <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-5 shadow-inner ${
+              orderAlert.alertType === "ORDER_READY" 
+                ? "bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400" 
+                : "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400"
+            }`}>
+              {orderAlert.alertType === "ORDER_READY" ? (
+                <PackageCheck size={36} className="animate-bounce" />
+              ) : (
+                <BellRing size={36} className="animate-bounce" />
+              )}
             </div>
 
+            {/* 🟢 DYNAMIC TITLE */}
             <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-2 tracking-tight">
-              New Order!
+              {orderAlert.alertType === "ORDER_READY" ? "Order Ready!" : "New Order!"}
             </h2>
 
             <div className="flex items-center justify-center gap-2 bg-slate-100 dark:bg-slate-800 px-4 py-2 rounded-full mb-6 mt-1">
               <Utensils size={14} className="text-slate-400" />
               <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                {orderAlert.alertType === "ORDER_READY" && orderAlert.order_id && `Order ${orderAlert.order_id} · `}
                 Table {orderAlert.table_number || "Unknown"}
               </span>
             </div>
 
             <div className="w-full flex gap-3">
               <button
-                onClick={closePopup} // 🟢 Use unified close function
+                onClick={closePopup}
                 className="flex-1 py-3.5 rounded-xl font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
               >
                 Dismiss
