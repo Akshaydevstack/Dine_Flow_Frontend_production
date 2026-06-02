@@ -74,15 +74,19 @@ export const fetchWaiterOrders = createAsyncThunk(
 );
 
 /* =========================================================
-   FETCH ORDERS TO ACCEPT
+   🟢 UPDATED: FETCH ORDERS TO ACCEPT (Paginated)
 ========================================================= */
 
 export const fetchOrdersToAccept = createAsyncThunk(
   "waiterOrder/fetchToAccept",
-  async (_, thunkApi) => {
+  async (page = 1, thunkApi) => {
     try {
-      const res = await axiosClient.get("/order/waiter/to-accept/");
-      return res.data.results || res.data || [];
+      const res = await axiosClient.get(`/order/waiter/to-accept/?page=${page}`);
+      return {
+        results: res.data.results || [],
+        next: res.data.next || null,
+        page,
+      };
     } catch (err) {
       return thunkApi.rejectWithValue(
         err.response?.data || { message: "Failed to fetch pending orders" }
@@ -92,15 +96,19 @@ export const fetchOrdersToAccept = createAsyncThunk(
 );
 
 /* =========================================================
-   🟢 NEW: FETCH READY ORDERS
+   🟢 UPDATED: FETCH READY ORDERS (Paginated)
 ========================================================= */
 
 export const fetchReadyOrders = createAsyncThunk(
   "waiterOrder/fetchReady",
-  async (_, thunkApi) => {
+  async (page = 1, thunkApi) => {
     try {
-      const res = await axiosClient.get("/order/waiter/ready-order/");
-      return res.data.results || res.data || [];
+      const res = await axiosClient.get(`/order/waiter/ready-order/?page=${page}`);
+      return {
+        results: res.data.results || [],
+        next: res.data.next || null,
+        page,
+      };
     } catch (err) {
       return thunkApi.rejectWithValue(
         err.response?.data || { message: "Failed to fetch ready orders" }
@@ -180,13 +188,17 @@ const initialState = {
   page: 1,
   hasMore: true,
   
-  // To Accept
+  // 🟢 To Accept Pagination
   toAcceptOrders: [],
   loadingToAccept: false,
+  toAcceptHasMore: true,
+  toAcceptPage: 1,
 
-  // 🟢 Ready Orders
+  // 🟢 Ready Orders Pagination
   readyOrders: [],
   loadingReady: false,
+  readyHasMore: true,
+  readyPage: 1,
 
   currentOrder: null,
   loading: false,
@@ -283,20 +295,38 @@ const waiterOrderSlice = createSlice({
       })
       .addCase(fetchOrdersToAccept.fulfilled, (state, action) => {
         state.loadingToAccept = false;
-        state.toAcceptOrders = action.payload;
+        const { results, next, page } = action.payload;
+        
+        if (page > 1) {
+          state.toAcceptOrders = [...state.toAcceptOrders, ...results];
+        } else {
+          state.toAcceptOrders = results;
+        }
+        
+        state.toAcceptHasMore = !!next;
+        state.toAcceptPage = page;
       })
       .addCase(fetchOrdersToAccept.rejected, (state, action) => {
         state.loadingToAccept = false;
         state.error = action.payload;
       })
 
-      /* ───────── 🟢 FETCH READY ORDERS ───────── */
+      /* ───────── FETCH READY ORDERS ───────── */
       .addCase(fetchReadyOrders.pending, (state) => {
         state.loadingReady = true;
       })
       .addCase(fetchReadyOrders.fulfilled, (state, action) => {
         state.loadingReady = false;
-        state.readyOrders = action.payload;
+        const { results, next, page } = action.payload;
+        
+        if (page > 1) {
+          state.readyOrders = [...state.readyOrders, ...results];
+        } else {
+          state.readyOrders = results;
+        }
+
+        state.readyHasMore = !!next;
+        state.readyPage = page;
       })
       .addCase(fetchReadyOrders.rejected, (state, action) => {
         state.loadingReady = false;

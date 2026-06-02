@@ -136,7 +136,6 @@ const formatTime = (d) =>
     minute: "2-digit",
     hour12: true,
   });
-
 const formatAge = (d) => {
   const diff = Math.floor((Date.now() - new Date(d)) / 60000);
   if (diff < 1) return "just now";
@@ -187,17 +186,12 @@ function OrderCard({
   return (
     <div
       className={`relative bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-200 
-      ${
-        isMine
-          ? "ring-2 ring-violet-500 shadow-violet-500/20 border border-violet-500" // 🟢 FIX: Used 'ring' instead of 'border' to preserve layout flow
-          : "border border-slate-200/80 dark:border-slate-700/80"
-      }`}
+      ${isMine ? "ring-2 ring-violet-500 shadow-violet-500/20 border border-violet-500" : "border border-slate-200/80 dark:border-slate-700/80"}`}
     >
       <div
         style={{
           background: `linear-gradient(180deg, ${cfg.color} 0%, ${cfg.ring} 100%)`,
         }}
-        // 🟢 FIX: Hide the absolute left bar if it's 'Mine' so the purple ring takes over perfectly
         className={`absolute left-0 top-0 bottom-0 w-[3px] ${isMine ? "hidden" : ""}`}
       />
 
@@ -482,7 +476,11 @@ export default function WaiterOrders() {
     loadingReady,
     fetched,
     hasMore,
+    toAcceptHasMore, // 🟢 Added
+    readyHasMore, // 🟢 Added
     page,
+    toAcceptPage, // 🟢 Added
+    readyPage, // 🟢 Added
     filters,
     count,
     error,
@@ -496,8 +494,8 @@ export default function WaiterOrders() {
   }, [location.state]);
 
   useEffect(() => {
-    dispatch(fetchOrdersToAccept());
-    dispatch(fetchReadyOrders());
+    dispatch(fetchOrdersToAccept(1));
+    dispatch(fetchReadyOrders(1));
   }, [dispatch]);
 
   useEffect(() => {
@@ -512,23 +510,54 @@ export default function WaiterOrders() {
     };
   }, [dispatch]);
 
+  /* ── 🟢 UPDATED: Infinite scroll works on ALL 3 tabs ── */
   useEffect(() => {
     const el = loadingRef.current;
-    if (!el || viewMode !== "all") return;
+    if (!el) return;
+
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting && hasMore && !loading && !loadingMore) {
-          setLoadingMore(true);
-          dispatch(fetchWaiterOrders(page + 1)).finally(() =>
-            setLoadingMore(false),
-          );
+        if (entry.isIntersecting && !loadingMore) {
+          if (viewMode === "all" && hasMore && !loading) {
+            setLoadingMore(true);
+            dispatch(fetchWaiterOrders(page + 1)).finally(() =>
+              setLoadingMore(false),
+            );
+          } else if (viewMode === "ready" && readyHasMore && !loadingReady) {
+            setLoadingMore(true);
+            dispatch(fetchReadyOrders(readyPage + 1)).finally(() =>
+              setLoadingMore(false),
+            );
+          } else if (
+            viewMode === "pending" &&
+            toAcceptHasMore &&
+            !loadingToAccept
+          ) {
+            setLoadingMore(true);
+            dispatch(fetchOrdersToAccept(toAcceptPage + 1)).finally(() =>
+              setLoadingMore(false),
+            );
+          }
         }
       },
       { threshold: 0.3 },
     );
     observer.observe(el);
     return () => observer.unobserve(el);
-  }, [hasMore, loading, loadingMore, page, dispatch, viewMode]);
+  }, [
+    viewMode,
+    hasMore,
+    readyHasMore,
+    toAcceptHasMore,
+    loading,
+    loadingReady,
+    loadingToAccept,
+    loadingMore,
+    page,
+    readyPage,
+    toAcceptPage,
+    dispatch,
+  ]);
 
   const applyFilters = useCallback(
     (patch) => {
@@ -573,9 +602,9 @@ export default function WaiterOrders() {
   const handleRefresh = async () => {
     setRefreshing(true);
     if (viewMode === "pending") {
-      await dispatch(fetchOrdersToAccept());
+      await dispatch(fetchOrdersToAccept(1)); // Fetch page 1
     } else if (viewMode === "ready") {
-      await dispatch(fetchReadyOrders());
+      await dispatch(fetchReadyOrders(1)); // Fetch page 1
     } else {
       dispatch(invalidateCache());
     }
@@ -623,7 +652,6 @@ export default function WaiterOrders() {
         arr.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
         break;
     }
-
     return arr.sort((a, b) => {
       if (a.placed_by_me && !b.placed_by_me) return -1;
       if (!a.placed_by_me && b.placed_by_me) return 1;
@@ -656,11 +684,12 @@ export default function WaiterOrders() {
         ? sortedReadyOrders
         : sortedAllOrders;
 
+  // 🟢 Show big loader only if fetching page 1
   const isInitialLoading =
     viewMode === "pending"
-      ? loadingToAccept
+      ? loadingToAccept && toAcceptPage === 1
       : viewMode === "ready"
-        ? loadingReady
+        ? loadingReady && readyPage === 1
         : loading && !fetched;
 
   const showEmpty = !isInitialLoading && currentDataset.length === 0;
@@ -734,11 +763,6 @@ export default function WaiterOrders() {
               className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold transition-all ${viewMode === "pending" ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm" : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"}`}
             >
               <Inbox className="w-3.5 h-3.5" /> Pending
-              {toAcceptOrders.length > 0 && (
-                <span className="bg-red-500 text-white px-1.5 py-0.5 rounded-full text-[9px]">
-                  {toAcceptOrders.length}
-                </span>
-              )}
             </button>
             <button
               onClick={() => setViewMode("ready")}
@@ -971,15 +995,12 @@ export default function WaiterOrders() {
               />
             ))}
 
-            {viewMode === "all" && (
-              <>
-                <div ref={loadingRef} className="h-2" />
-                {loadingMore && (
-                  <div className="space-y-3 mt-3">
-                    <OrderSkeleton />
-                  </div>
-                )}
-              </>
+            {/* 🟢 Render the sentinel unconditionally, let the observer logic decide when to fire */}
+            <div ref={loadingRef} className="h-2" />
+            {loadingMore && (
+              <div className="space-y-3 mt-3">
+                <OrderSkeleton />
+              </div>
             )}
           </div>
         )}
