@@ -240,8 +240,6 @@ const adminKitchenTicketSlice = createSlice({
         delete state.mutating[meta.arg.publicId];
         patchTicketInState(state, payload);
         
-        // 🟢 FIX: Set fetched to false to trigger refetch
-        state.fetched = false;
       })
       .addCase(updateTicketStatus.rejected, (state, { payload, meta }) => {
         delete state.mutating[meta.arg.publicId];
@@ -257,8 +255,6 @@ const adminKitchenTicketSlice = createSlice({
         delete state.itemMutating[meta.arg.itemId];
         patchItemInTicket(state, payload.ticketPublicId, payload.item);
         
-        // 🟢 FIX: Set fetched to false to trigger refetch
-        state.fetched = false;
       })
       .addCase(updateItemStatus.rejected, (state, { payload, meta }) => {
         delete state.itemMutating[meta.arg.itemId];

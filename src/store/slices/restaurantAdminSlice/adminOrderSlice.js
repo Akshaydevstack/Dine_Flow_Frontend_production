@@ -264,8 +264,6 @@ const adminOrderSlice = createSlice({
           patchOrderInState(state, order);
           if (order?.order_id) delete state.mutating[order.order_id];
           
-          // 🟢 FIX: Set fetched to false so the component refetches on next visit
-          state.fetched = false;
         }
       )
       .addMatcher(

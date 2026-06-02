@@ -306,17 +306,17 @@ const kitchenSlice = createSlice({
       .addCase(updateKitchenItemStatus.rejected, (state, { payload, meta }) => {
         delete state.mutating[`item_${meta.arg.item_id}`];
         state.error = payload;
-      })
-
-      /* ── 🟢 CROSS-SLICE INVALIDATION ── */
-      // If the admin changes the order status, make this kitchen slice
-      // refetch the next time the Kitchen Staff visits the screen.
-      .addCase("adminOrders/updateStatus/fulfilled", (state) => {
-        state.fetched = false;
-      })
-      .addCase("adminOrders/updatePayment/fulfilled", (state) => {
-        state.fetched = false;
       });
+
+      // /* ── 🟢 CROSS-SLICE INVALIDATION ── */
+      // // If the admin changes the order status, make this kitchen slice
+      // // refetch the next time the Kitchen Staff visits the screen.
+      // .addCase("adminOrders/updateStatus/fulfilled", (state) => {
+      //   state.fetched = false;
+      // })
+      // .addCase("adminOrders/updatePayment/fulfilled", (state) => {
+      //   state.fetched = false;
+      // });
   },
 });
 
