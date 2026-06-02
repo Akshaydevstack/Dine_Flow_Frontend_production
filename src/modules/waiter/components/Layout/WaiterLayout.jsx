@@ -5,7 +5,7 @@ import { useDispatch } from "react-redux";
 import { useAppSelector } from "../../../../store/hooks";
 import WaiterBottomNav from "../common/WaiterBottomNav";
 import { updateTableSession } from "../../../../store/slices/waiterSlice/waiterTablesSlice";
-import { fetchOrdersToAccept } from "../../../../store/slices/waiterSlice/waiterOrderSlice";
+import { fetchOrdersToAccept , fetchReadyOrders} from "../../../../store/slices/waiterSlice/waiterOrderSlice";
 
 import {
   useWaiterTableSessionSocket,
@@ -88,7 +88,8 @@ export default function WaiterLayout() {
         setOrderAlert({ ...eventData, alertType: "ORDER_READY" });
         setTimeout(() => closePopup(), 10000);
 
-        dispatch(fetchOrdersToAccept());
+        
+        dispatch(fetchReadyOrders())
       }
     },
     [dispatch, closePopup, internal_id],
