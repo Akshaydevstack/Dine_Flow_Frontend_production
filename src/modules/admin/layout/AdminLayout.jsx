@@ -77,7 +77,6 @@ export default function AdminLayout() {
         }
 
         dispatch(invalidateAdminOrders());
-        if (orderFilters) dispatch(fetchAdminOrders(orderFilters));
       }
     },
     [dispatch, orderFilters, closePopup],
