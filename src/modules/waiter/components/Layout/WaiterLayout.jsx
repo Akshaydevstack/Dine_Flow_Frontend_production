@@ -12,6 +12,8 @@ import {
   useWaiterDisplaySocket,
 } from "../../hooks/useWaiterSocket";
 
+
+
 // FCM & Notification Imports
 import { BellRing, X, Utensils } from "lucide-react";
 import axiosClient from "../../../../api/axiosClient";
@@ -51,19 +53,23 @@ export default function WaiterLayout() {
   const handleWaiterDisplayUpdate = useCallback(
     (message) => {
       if (message.type === "new_order_alert") {
-        console.log("🛎️ Instant Foreground Alert:", message.data);
+        const eventData = message.data;
+        console.log("🛎️ Instant Foreground Alert:", eventData);
 
-        // Play sound
-        const audio = new Audio("/bell.wav");
-        audio.play().catch((e) => console.log("Audio play blocked:", e));
+        // 🟢 Only ring the bell and show the popup if it's a BRAND NEW order
+        if (eventData.event_type === "ORDER_CREATED") {
+          // Play sound using the imported file
+          const audio = new Audio("/bell.wav");
+          audio.play().catch((e) => console.log("Audio play blocked:", e));
 
-        // Show Custom Centered Popup
-        setOrderAlert(message.data);
+          // Show Custom Centered Popup
+          setOrderAlert(eventData);
 
-        // Auto-dismiss after 10 seconds
-        setTimeout(() => {
-          setOrderAlert(null);
-        }, 10000);
+          // Auto-dismiss after 10 seconds
+          setTimeout(() => {
+            setOrderAlert(null);
+          }, 10000);
+        }
 
         // Refresh orders list silently in the background
         dispatch(fetchOrdersToAccept());
