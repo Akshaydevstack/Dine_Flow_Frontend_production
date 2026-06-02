@@ -54,7 +54,7 @@ export default function AdminLayout() {
 
         // ONLY show the popup and play the bell if it's a BRAND NEW order
         if (eventData.event_type === "ORDER_CREATED") {
-          const audio = new Audio("/bell.mp3");
+          const audio = new Audio("/bell.wav");
           audio.play().catch((e) => console.log("Audio play blocked:", e));
 
           setOrderAlert(eventData);

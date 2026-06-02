@@ -54,7 +54,7 @@ export default function WaiterLayout() {
         console.log("🛎️ Instant Foreground Alert:", message.data);
 
         // Play sound
-        const audio = new Audio("/bell.mp3");
+        const audio = new Audio("/bell.wav");
         audio.play().catch((e) => console.log("Audio play blocked:", e));
 
         // Show Custom Centered Popup
