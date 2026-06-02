@@ -6,15 +6,11 @@ import WaiterBottomNav from "../common/WaiterBottomNav";
 import { updateTableSession } from "../../../../store/slices/waiterSlice/waiterTablesSlice";
 import { fetchOrdersToAccept } from "../../../../store/slices/waiterSlice/waiterOrderSlice";
 
-// 🟢 Import your socket hooks
 import {
   useWaiterTableSessionSocket,
   useWaiterDisplaySocket,
 } from "../../hooks/useWaiterSocket";
 
-
-
-// FCM & Notification Imports
 import { BellRing, X, Utensils } from "lucide-react";
 import axiosClient from "../../../../api/axiosClient";
 import {
@@ -28,8 +24,19 @@ export default function WaiterLayout() {
   const token = useAppSelector((state) => state.auth.accessToken);
   const isAuthenticated = useAppSelector((state) => state.auth.isAuthenticated);
 
-  // State for our custom centered order popup
   const [orderAlert, setOrderAlert] = useState(null);
+  
+  // 🟢 NEW: Store the audio object so we can pause it later
+  const audioRef = useRef(null);
+
+  // 🟢 NEW: Unified function to close the popup AND stop the sound
+  const closePopup = useCallback(() => {
+    setOrderAlert(null);
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0; // Reset to beginning
+    }
+  }, []);
 
   // -----------------------------------------------------
   // 1. WebSocket Logic (Table Sessions)
@@ -48,7 +55,7 @@ export default function WaiterLayout() {
   });
 
   // -----------------------------------------------------
-  // 2. 🟢 Foreground WebSocket (Live Order Popups)
+  // 2. Foreground WebSocket (Live Order Popups)
   // -----------------------------------------------------
   const handleWaiterDisplayUpdate = useCallback(
     (message) => {
@@ -56,18 +63,16 @@ export default function WaiterLayout() {
         const eventData = message.data;
         console.log("🛎️ Instant Foreground Alert:", eventData);
 
-        // 🟢 Only ring the bell and show the popup if it's a BRAND NEW order
         if (eventData.event_type === "ORDER_CREATED") {
-          // Play sound using the imported file
-          const audio = new Audio("/bell.wav");
-          audio.play().catch((e) => console.log("Audio play blocked:", e));
+          // 🟢 Initialize audio and save it to the ref
+          audioRef.current = new Audio("/bell.wav");
+          audioRef.current.play().catch((e) => console.log("Audio play blocked (User must interact first):", e));
 
-          // Show Custom Centered Popup
           setOrderAlert(eventData);
 
-          // Auto-dismiss after 10 seconds
+          // Auto-dismiss after 10 seconds and stop sound
           setTimeout(() => {
-            setOrderAlert(null);
+            closePopup();
           }, 10000);
         }
 
@@ -75,7 +80,7 @@ export default function WaiterLayout() {
         dispatch(fetchOrdersToAccept());
       }
     },
-    [dispatch],
+    [dispatch, closePopup],
   );
 
   useWaiterDisplaySocket({
@@ -118,7 +123,6 @@ export default function WaiterLayout() {
         setTimeout(() => setShowPrompt(true), 2500);
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated]);
 
   useEffect(() => {
@@ -150,7 +154,7 @@ export default function WaiterLayout() {
   };
 
   const handleViewOrders = () => {
-    setOrderAlert(null);
+    closePopup(); // 🟢 Stop sound and hide popup
     navigate("/waiter/orders");
   };
 
@@ -159,7 +163,6 @@ export default function WaiterLayout() {
   // -----------------------------------------------------
   return (
     <div className="min-h-screen bg-white dark:bg-gray-450 text-gray-900 dark:text-gray-100 font-body relative">
-      {/* Background Blobs */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
         <div className="absolute top-[-5%] right-[-5%] w-[500px] h-[500px] animate-pulse-slow" />
         <div className="absolute bottom-[-10%] left-[-10%] w-[600px] h-[600px] bg-blue-600/10 dark:bg-blue-600/15 rounded-full blur-[140px]" />
@@ -167,12 +170,11 @@ export default function WaiterLayout() {
         <div className="absolute bottom-[20%] right-[5%] w-80 h-80 bg-emerald-500/5 dark:bg-emerald-500/10 rounded-full blur-[110px]" />
       </div>
 
-      {/* 🛎️ Custom Centered Order Popup */}
       {orderAlert && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm transition-opacity">
           <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6 w-full max-w-sm flex flex-col items-center text-center relative animate-in fade-in zoom-in duration-300">
             <button
-              onClick={() => setOrderAlert(null)}
+              onClick={closePopup} // 🟢 Use unified close function
               className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
             >
               <X size={18} />
@@ -195,7 +197,7 @@ export default function WaiterLayout() {
 
             <div className="w-full flex gap-3">
               <button
-                onClick={() => setOrderAlert(null)}
+                onClick={closePopup} // 🟢 Use unified close function
                 className="flex-1 py-3.5 rounded-xl font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
               >
                 Dismiss
@@ -211,7 +213,6 @@ export default function WaiterLayout() {
         </div>
       )}
 
-      {/* FCM Permissions Banner */}
       {showPrompt && (
         <div className="fixed z-[100] top-4 left-4 right-4 md:left-auto md:right-4 md:w-96 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 p-4 flex flex-col gap-3 transition-all">
           <div className="flex justify-between items-start">

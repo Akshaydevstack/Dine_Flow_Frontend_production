@@ -1,5 +1,5 @@
 import { Outlet, useNavigate } from "react-router-dom";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useDispatch } from "react-redux";
 import { useAppSelector } from "../../../store/hooks";
 import AdminSidebar from "../components/AdminSidebar";
@@ -42,34 +42,45 @@ export default function AdminLayout() {
   const tableFilters = useAppSelector((state) => state.adminTables?.filters);
   const sessionFilters = useAppSelector((state) => state.adminTableSessions?.filters);
 
+  // 🟢 NEW: Store the audio object so we can pause it later
+  const audioRef = useRef(null);
+
+  // 🟢 NEW: Unified function to close the popup AND stop the sound
+  const closePopup = useCallback(() => {
+    setOrderAlert(null);
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0; // Reset to beginning
+    }
+  }, []);
+
   // -----------------------------------------------------
   // 🟢 WebSocket Handler 1: Live Order Updates
   // -----------------------------------------------------
   const handleOrderUpdate = useCallback(
     (message) => {
-      // Listen for the specific type emitted by your Django AdminOrderConsumer
       if (message.type === "admin_order_update") {
         const eventData = message.data;
         console.log("🛎️ Admin Order Event Received:", eventData);
 
-        // ONLY show the popup and play the bell if it's a BRAND NEW order
         if (eventData.event_type === "ORDER_CREATED") {
-          const audio = new Audio("/bell.wav");
-          audio.play().catch((e) => console.log("Audio play blocked:", e));
+          // 🟢 Initialize audio and save it to the ref
+          audioRef.current = new Audio("/bell.wav");
+          audioRef.current.play().catch((e) => console.log("Audio play blocked (User must interact first):", e));
 
           setOrderAlert(eventData);
 
+          // Auto-dismiss after 10 seconds and stop sound
           setTimeout(() => {
-            setOrderAlert(null);
+            closePopup();
           }, 10000);
         }
 
-        // Regardless of event type (created, accepted, cancelled), refresh the orders list
         dispatch(invalidateAdminOrders());
         if (orderFilters) dispatch(fetchAdminOrders(orderFilters));
       }
     },
-    [dispatch, orderFilters],
+    [dispatch, orderFilters, closePopup],
   );
 
   // -----------------------------------------------------
@@ -80,24 +91,21 @@ export default function AdminLayout() {
       if (message.type === "admin_table_update") {
         console.log("🪑 Admin Table Event Received:", message.data);
         
-        // 💥 Clear both caches
         dispatch(invalidateAdminTables());
         dispatch(invalidateAdminTableSessions());
 
-        // 🔄 Refetch both datasets
         if (tableFilters) dispatch(fetchAdminTables(tableFilters));
         if (sessionFilters) dispatch(fetchAdminTableSessions(sessionFilters));
       }
     },
-    [dispatch, tableFilters, sessionFilters], // 🟢 Add sessionFilters to dependencies!
+    [dispatch, tableFilters, sessionFilters],
   );
 
-  // Initialize both sockets
   useAdminOrderSocket({ token, onMessage: handleOrderUpdate });
   useAdminTableSocket({ token, onMessage: handleTableUpdate });
 
   const handleViewOrders = () => {
-    setOrderAlert(null);
+    closePopup(); // 🟢 Stop sound and hide popup
     navigate("/restaurant/admin/order-management");
   };
 
@@ -119,12 +127,11 @@ export default function AdminLayout() {
         bg-gray-50 dark:bg-gray-900
         transition-colors duration-300 relative"
     >
-      {/* 🛎️ Custom Centered Order Popup */}
       {orderAlert && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm transition-opacity">
           <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6 w-full max-w-sm flex flex-col items-center text-center relative animate-in fade-in zoom-in duration-300">
             <button
-              onClick={() => setOrderAlert(null)}
+              onClick={closePopup} // 🟢 Use unified close function
               className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
             >
               <X size={18} />
@@ -147,7 +154,7 @@ export default function AdminLayout() {
 
             <div className="w-full flex gap-3">
               <button
-                onClick={() => setOrderAlert(null)}
+                onClick={closePopup} // 🟢 Use unified close function
                 className="flex-1 py-3.5 rounded-xl font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
               >
                 Dismiss
@@ -163,7 +170,6 @@ export default function AdminLayout() {
         </div>
       )}
 
-      {/* ── SIDEBAR (desktop only) ── */}
       {!isMobile && (
         <div
           style={{ width: sidebarWidth }}
@@ -175,7 +181,6 @@ export default function AdminLayout() {
         </div>
       )}
 
-      {/* ── MAIN CONTENT ── */}
       <main
         style={{ marginLeft: isMobile ? 0 : sidebarWidth }}
         className="flex-1 min-h-screen transition-[margin-left] duration-300 ease-in-out"
