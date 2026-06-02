@@ -18,7 +18,9 @@ export const useKitchenSocket = ({ token, onMessage }) => {
 
     socket.onmessage = (event) => {
       const data = JSON.parse(event.data);
+      console.log(data)
       onMessage(data);
+      
     };
 
     socket.onerror = (err) => {
