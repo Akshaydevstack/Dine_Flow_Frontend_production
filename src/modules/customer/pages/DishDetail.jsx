@@ -45,36 +45,37 @@ export default function DishDetails() {
   const existingCartItem = cartItems.find((item) => item.dish_id === dishId);
 
   useEffect(() => {
-    fetchDish();
+    fetchDish(true); // 🟢 Pass true on initial load to show skeleton
   }, [dishId]);
 
-  
-  const fetchDish = async () => {
-  setLoading(true);
-  try {
-    const response = await axiosClient.get(`/menu/customer/dishe/${dishId}/`);
-    const dishData = response.data;
+  // 🟢 FIX: Added showLoadingState parameter to control when skeletons appear
+  const fetchDish = async (showLoadingState = true) => {
+    if (showLoadingState) setLoading(true);
 
-    setDish(dishData);
-
-    // ✅ AI TRACKING CALL
     try {
-      await axiosClient.post("/ai/track-view/", {
-        dish: dishData,
-      });
-    } catch (err) {
-      console.error("AI tracking failed:", err);
-    }
+      const response = await axiosClient.get(`/menu/customer/dishe/${dishId}/`);
+      const dishData = response.data;
 
-    if (existingCartItem) {
-      setQuantity(existingCartItem.quantity);
+      setDish(dishData);
+
+      // ✅ AI TRACKING CALL
+      try {
+        await axiosClient.post("/ai/track-view/", {
+          dish: dishData,
+        });
+      } catch (err) {
+        console.error("AI tracking failed:", err);
+      }
+
+      if (existingCartItem) {
+        setQuantity(existingCartItem.quantity);
+      }
+    } catch (error) {
+      console.error("Error fetching dish:", error);
+    } finally {
+      if (showLoadingState) setLoading(false);
     }
-  } catch (error) {
-    console.error("Error fetching dish:", error);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const handleIncrease = () => {
     setQuantity((prev) => prev + 1);
@@ -145,7 +146,8 @@ export default function DishDetails() {
 
       await axiosClient.post("/menu/customer/reviews/", reviewPayload);
 
-      await fetchDish();
+      // 🟢 FIX: Fetch dish silently in background (passes false) to update reviews without flickering
+      await fetchDish(false);
 
       setNewReview({ rating: 5, comment: "" });
       setShowReviewForm(false);
