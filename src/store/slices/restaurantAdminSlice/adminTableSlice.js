@@ -109,8 +109,11 @@ export const deleteAdminZone = createAsyncThunk(
 
 export const fetchAdminTables = createAsyncThunk(
   "adminTables/fetch",
-  async (filters, { getState, rejectWithValue }) => {
+  async (filtersArg, { getState, rejectWithValue }) => {
     try {
+      // 🟢 FIX 1: Safely grab filters from state if none are passed
+      const filters = filtersArg || getState().adminTables.filters;
+
       const cacheKey = generateCacheKey(filters);
       const isLoadMore = filters.currentPage > 1;
 
@@ -330,6 +333,11 @@ const adminTableSlice = createSlice({
       state.zoneSuccess = null;
       state.zoneError = null;
     },
+    // 🟢 FIX 2: Added invalidate cache action
+    invalidateAdminTables(state) {
+      state.fetched = false;
+      state.cache = {};
+    },
   },
 
   extraReducers: (builder) => {
@@ -405,7 +413,9 @@ const adminTableSlice = createSlice({
 
       /* ── TABLES FETCH ── */
       .addCase(fetchAdminTables.pending, (s, { meta }) => {
-        const page = meta.arg.currentPage;
+        // 🟢 FIX 3: Optional chaining here prevents the crash!
+        const page = meta.arg?.currentPage || 1;
+        
         if (page > 1) {
           s.loadingMore = true;
         } else if (s.fetched) {
@@ -513,6 +523,7 @@ export const {
   resetTableFilters,
   clearTableMessages,
   clearZoneMessages,
+  invalidateAdminTables, // 🟢 FIX 2: Exported!
 } = adminTableSlice.actions;
 
 export default adminTableSlice.reducer;

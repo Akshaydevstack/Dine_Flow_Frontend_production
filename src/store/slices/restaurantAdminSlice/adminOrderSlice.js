@@ -34,8 +34,11 @@ const generateCacheKey = (f) =>
 
 export const fetchAdminOrders = createAsyncThunk(
   "adminOrders/fetch",
-  async (filters, { getState, rejectWithValue }) => {
+  async (filtersArg, { getState, rejectWithValue }) => {
     try {
+      // 🟢 THE FIX: Grab current filters directly from state if none passed
+      const filters = filtersArg || getState().adminOrders.filters;
+
       const cacheKey   = generateCacheKey(filters);
       const isLoadMore = filters.currentPage > 1;
       const cached     = getState().adminOrders.cache[cacheKey];
@@ -52,7 +55,7 @@ export const fetchAdminOrders = createAsyncThunk(
       if (filters.status !== "all")         params.status         = filters.status;
       if (filters.paymentStatus !== "all")  params.payment_status = filters.paymentStatus;
 
-      // Date range filters — sent as ISO date strings (YYYY-MM-DD)
+      // Date range filters
       if (filters.dateFrom)  params.created_at_after  = filters.dateFrom;
       if (filters.dateTo)    params.created_at_before = filters.dateTo;
 
@@ -112,8 +115,8 @@ export const initialOrderFilters = {
   sortBy:        "newest",
   currentPage:   1,
   itemsPerPage:  20,
-  dateFrom:      "",   // "YYYY-MM-DD" or ""
-  dateTo:        "",   // "YYYY-MM-DD" or ""
+  dateFrom:      "", 
+  dateTo:        "", 
 };
 
 /* =========================================================
@@ -183,7 +186,6 @@ const adminOrderSlice = createSlice({
     setAdminOrderCurrentPage(state, { payload }) {
       state.filters.currentPage = payload;
     },
-    // Date range — payload: { dateFrom?: string, dateTo?: string }
     setAdminOrderDateRange(state, { payload }) {
       if (payload.dateFrom !== undefined) state.filters.dateFrom = payload.dateFrom;
       if (payload.dateTo   !== undefined) state.filters.dateTo   = payload.dateTo;
@@ -213,7 +215,9 @@ const adminOrderSlice = createSlice({
     builder
       /* ── FETCH ── */
       .addCase(fetchAdminOrders.pending, (state, { meta }) => {
-        const page = meta.arg.currentPage;
+        // 🟢 FIX: Added optional chaining here so it doesn't crash!
+        const page = meta.arg?.currentPage || 1;
+        
         if (page > 1) {
           state.loadingMore = true;
         } else if (state.fetched) {
