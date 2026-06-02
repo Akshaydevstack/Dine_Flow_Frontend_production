@@ -10,8 +10,11 @@ const todayISO = () => new Date().toISOString().slice(0, 10);
 
 export const fetchKitchenTickets = createAsyncThunk(
   "kitchen/fetchTickets",
-  async (filters, { rejectWithValue }) => {
+  async (filtersArg, { getState, rejectWithValue }) => {
     try {
+      // 🟢 FIX: Grab current filters directly from state if none passed
+      const filters = filtersArg || getState().kitchen.filters;
+
       const params = {};
       if (filters.restaurant_id) params.restaurant_id = filters.restaurant_id;
       if (filters.status) params.status = filters.status;
@@ -182,6 +185,11 @@ const kitchenSlice = createSlice({
       state.detailError = null;
     },
 
+    // 🟢 FIX: Added manual cache invalidation
+    invalidateKitchenTickets(state) {
+      state.fetched = false;
+    },
+
     // WebSocket events
     wsTicketCreated(state, { payload }) {
       if (!state.tickets.some((t) => t.public_id === payload.public_id))
@@ -298,6 +306,16 @@ const kitchenSlice = createSlice({
       .addCase(updateKitchenItemStatus.rejected, (state, { payload, meta }) => {
         delete state.mutating[`item_${meta.arg.item_id}`];
         state.error = payload;
+      })
+
+      /* ── 🟢 CROSS-SLICE INVALIDATION ── */
+      // If the admin changes the order status, make this kitchen slice
+      // refetch the next time the Kitchen Staff visits the screen.
+      .addCase("adminOrders/updateStatus/fulfilled", (state) => {
+        state.fetched = false;
+      })
+      .addCase("adminOrders/updatePayment/fulfilled", (state) => {
+        state.fetched = false;
       });
   },
 });
@@ -310,6 +328,7 @@ export const {
   resetKitchenFilters,
   clearKitchenError,
   clearKitchenDetail,
+  invalidateKitchenTickets, // 🟢 EXPORTED
   wsTicketCreated,
   wsTicketCancelled,
   wsTicketUpdated,

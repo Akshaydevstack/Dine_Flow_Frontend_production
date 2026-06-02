@@ -272,6 +272,18 @@ const adminKitchenTicketSlice = createSlice({
       .addCase("adminOrders/updatePayment/fulfilled", (state) => {
         state.fetched = false;
         state.cache = {};
+      })
+      .addCase("kitchen/updateTicketStatus/fulfilled", (state) => {
+        state.fetched = false;
+        state.cache = {};
+      })
+      .addCase("kitchen/cancelTicket/fulfilled", (state) => {
+        state.fetched = false;
+        state.cache = {};
+      })
+      .addCase("kitchen/updateItemStatus/fulfilled", (state) => {
+        state.fetched = false;
+        state.cache = {};
       });
   },
 });

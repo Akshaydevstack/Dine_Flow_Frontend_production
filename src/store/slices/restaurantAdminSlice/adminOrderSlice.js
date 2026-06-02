@@ -273,9 +273,8 @@ const adminOrderSlice = createSlice({
       )
       
       /* ── 🟢 CROSS-SLICE INVALIDATION ── */
-      // Listen for the exact success actions from adminKitchenTicketSlice.js
-      // If the kitchen staff marks a ticket as "Ready" or "Preparing", 
-      // wipe the order cache so the Admin sees the latest info!
+      // Listen for the exact success actions from kitchenSlice.js (the kitchen staff app)
+      // and adminKitchenTicketSlice.js (admin portal)
       .addCase("adminKitchenTickets/updateStatus/fulfilled", (state) => {
         state.fetched = false;
         state.cache = {};
@@ -283,7 +282,21 @@ const adminOrderSlice = createSlice({
       .addCase("adminKitchenTickets/updateItemStatus/fulfilled", (state) => {
         state.fetched = false;
         state.cache = {};
+      })
+      .addCase("kitchen/updateTicketStatus/fulfilled", (state) => {
+        state.fetched = false;
+        state.cache = {};
+      })
+      .addCase("kitchen/cancelTicket/fulfilled", (state) => {
+        state.fetched = false;
+        state.cache = {};
+      })
+      .addCase("kitchen/updateItemStatus/fulfilled", (state) => {
+        state.fetched = false;
+        state.cache = {};
       });
+
+      
   },
 });
 
