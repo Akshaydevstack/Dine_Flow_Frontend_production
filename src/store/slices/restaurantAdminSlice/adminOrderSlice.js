@@ -251,6 +251,15 @@ const adminOrderSlice = createSlice({
         state.loadingMore  = false;
         state.error        = payload;
       })
+      /* ── CROSS-SLICE INVALIDATION ── */
+      .addCase("adminKitchenTickets/updateStatus/fulfilled", (state) => {
+        state.fetched = false;
+        state.cache = {};
+      })
+      .addCase("adminKitchenTickets/updateItemStatus/fulfilled", (state) => {
+        state.fetched = false;
+        state.cache = {};
+      })
 
       /* ── MUTATIONS via addMatcher ── */
       .addMatcher(
@@ -270,16 +279,6 @@ const adminOrderSlice = createSlice({
         ({ type }) => MUTATION_REJECTED.includes(type),
         (state, { meta }) => { delete state.mutating[meta.arg.publicId]; }
       )
-      
-      /* ── CROSS-SLICE INVALIDATION ── */
-      .addCase("adminKitchenTickets/updateStatus/fulfilled", (state) => {
-        state.fetched = false;
-        state.cache = {};
-      })
-      .addCase("adminKitchenTickets/updateItemStatus/fulfilled", (state) => {
-        state.fetched = false;
-        state.cache = {};
-      });
   },
 });
 
