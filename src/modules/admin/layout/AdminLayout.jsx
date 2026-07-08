@@ -60,7 +60,7 @@ export default function AdminLayout() {
   }, []);
 
   // -----------------------------------------------------
-  // 🟢 WebSocket Handler 1: Live Order Updates
+  // 🟢 WebSocket Handler 1: Live Order Update
   // -----------------------------------------------------
   const handleOrderUpdate = useCallback(
     (message) => {
